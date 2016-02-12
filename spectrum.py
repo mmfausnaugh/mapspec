@@ -21,7 +21,7 @@ from copy import deepcopy
 
 import matplotlib.pyplot as plt
 
-__all__ = ['bootstrap','Spectrum','EmissionLine','LineModel','TextSpec','FitsSpec']
+__all__ = ['bootstrap','Spectrum','EmissionLine','LineModel','TextSpec','TextSpec_2c','FitsSpec']
 
 def bootstrap(Spec,func,N=1000):
     dist = []
@@ -326,6 +326,7 @@ class EmissionLine(Spectrum):
     """
     def  __init__(self,Spec,window,cwindow):
         super(EmissionLine,self).__init__()  
+        self.style= Spec.style
         self.cwindow = cwindow
         ml = (Spec.wv >= window[0])*(Spec.wv <= window[1])
         mc  = (Spec.wv > cwindow[0][0])*(Spec.wv < cwindow[0][1])
@@ -335,9 +336,11 @@ class EmissionLine(Spectrum):
 
         wvfit = Spec.wv[mc] - Spec.wv[mc].mean()
         ffit  = Spec.f[mc]  - Spec.f[mc].mean()
+
         cfit,covar = tools.linfit(wvfit,ffit,Spec.ef[mc])
 
         wvsub = self.wv - Spec.wv[mc].mean()
+
         self.cf  = cfit[0] + cfit[1]*wvsub
         self.cf += Spec.f[mc].mean()
         self.ecf = sp.sqrt(covar[0,0] + covar[1,1]*wvsub + 2*covar[0,1]*wvsub)
@@ -361,11 +364,65 @@ class EmissionLine(Spectrum):
         norm = self.integrate_line()
         return moment/norm
 
+    def wv_median(self):
+        ftarget = 0.5*self.integrate_line()
+        for i in range(self.wv.size):
+            if i == 0: continue
+
+            m = self.wv < self.wv[i]
+            ftest = simps(self.f[m],self.wv[m])
+            #is this too harsh, since there is a gap in the middle?
+            if abs(ftarget - ftest) <= 1.e-5:
+                #check other side
+                m2 = self.wv >= self.wv[i + 1]
+                ftest2 = simps(self.f[m2],self.wv[m2])
+                if abs(ftest - ftest2) < 1.e-5:
+                    return ( self.wv[i] + self.wv[i+1] )/2.
+                else:
+                    raise ValueError("Didn't find the wavelength that splits the integral in two.")
+
+
+
     def dispersion(self):
         l0 = self.wv_mean()
         moment = simps(self.wv**2*self.f,self.wv)
         norm   = self.integrate_line()
         return sp.sqrt(moment/norm - l0**2)
+
+    def fwhm(self, center):
+        mred = self.wv >=center
+        mblue = self.wv < center
+
+        #check double peaked
+        bmax_i = sp.where( self.f == self.f[mblue].max() )[0]
+        rmax_i = sp.where( self.f == self.f[mred].max()  )[0]
+        wvmask = (self.wv > self.wv[bmax_i] )*(self.wv < self.wv[rmax_i] )
+        #what to do if profile is noisy, and therefore non-monotonic, but not double peaked?
+        check = sp.diff( self.f[wvmask] )
+        if self.f[bmax_i].max() < self.f[rmax_i].max():
+            if (check < 0).any():
+                doublepeaked = True
+            else:
+                doublepeaked = False
+        else:
+            if (check > 0).any():
+                doublepeaked = True
+            else:
+                doublepeaked = False
+
+        if doublepeaked = False:            
+            ftarget = 0.5*self.f.max()
+            fdiff = self.f - ftarget
+            
+            inflect = []
+            for i range(fdiff.size - 1):
+                if fdiff[i] < 0 and fdiff[i + 1] > 0:
+                    inflect.append(i)
+                if fdiff[i] > 0 and fdiff[i+1] < 0:
+                    inflect.append(i)
+
+            assert len(inflect) == 2
+
 
 
 class LineModel(EmissionLine):
@@ -387,7 +444,7 @@ class LineModel(EmissionLine):
     empircal line.
     """
 
-    def __init__(self,EmLine,func = 'gaussian',window = None,nline=1,floating=False,linedat = None):
+    def __init__(self,EmLine,func = 'gaussian',window = None,nline=1,floating=False,linedata = None):
         super(EmissionLine,self).__init__()  
         self.wv   = EmLine.wv
         self.lf   = EmLine.f
@@ -404,7 +461,7 @@ class LineModel(EmissionLine):
             y = EmLine.f
             z = EmLine.ef
 
-        self.fuse,pinit = self._init_params(func,x,y,nline,linedat)
+        self.fuse,pinit = self._init_params(func,x,y,nline,linedata)
         #all the heavy lifting is in this step
         self.p,self.covar = tools.fitfunc(self.fuse,pinit,x,y,z)
 
@@ -631,8 +688,9 @@ def approx_voigt(x,p):
 
 
 class TextSpec(Spectrum):
-    def __init__(self,ifile):
+    def __init__(self,ifile,style='sinc'):
         super(TextSpec,self).__init__()  
+        self.style=style
         x,y,z = sp.genfromtxt(ifile,unpack=1,usecols = (0,1,2))
         self.wv = x
         self.f  = y
@@ -645,18 +703,20 @@ class TextSpec(Spectrum):
 
 
 class TextSpec_2c(Spectrum):
-    def __init__(self,ifile):
-            x,y = sp.genfromtxt(ifile,unpack=1,usecols = (0,1))
-            self.wv = x
-            self.f  = y
+    def __init__(self,ifile,style='sinc'):
+        super(TextSpec_2c,self).__init__()  
+        self.style=style
+        x,y = sp.genfromtxt(ifile,unpack=1,usecols = (0,1))
+        self.wv = x
+        self.f  = y
 #            self.ef = sp.ones(y.size)
 
-            self.wv_orig = deepcopy(self.wv)
-            self.f_orig  = deepcopy(self.f)
-            self.ef_orig = deepcopy(self.ef)
+        self.wv_orig = deepcopy(self.wv)
+        self.f_orig  = deepcopy(self.f)
+        self.ef_orig = deepcopy(self.ef)
 
 class FitsSpec(Spectrum):
-    def __init__(self,ifile, extension = 0,data_axis = 1, error_axis =3, x1key ='CRVAL1', dxkey='CD1_1', p1key='CRPIX1'):
+    def __init__(self,ifile, extension = 0,data_axis = 1, error_axis =3, x1key ='CRVAL1', dxkey='CD1_1', p1key='CRPIX1',style='sinc'):
         super(FitsSpec,self).__init__()  
 
         data  = fits.getdata(ifile,extension)
