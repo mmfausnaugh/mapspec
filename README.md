@@ -55,9 +55,9 @@ will rebin the spectrum to twice the original wavelength spacing.
 The next object is the `EmissionLine` class.  `EmissionLine` inherits from `Spectrum`, so it can be used in approximately the same way.  To instantiate an `EmissionLine`, you need to specify the line window and surrounding continuum:
 
     from mapspec.spectrum import EmissionLine
-    oiii = [ [5065 5115],     #OIII 5007, at redshift 1.018
-             [5059 5065],     #blue continuum
-             [5115 5129]  ]   # red continuum
+    oiii = [ [5065, 5115],     #OIII 5007, at redshift 1.018
+             [5059, 5065],     #blue continuum
+             [5115, 5129]  ]   # red continuum
     my_line = EmissionLine(my_spec, oiii[0], [oiii[1],oiii[2]] )
 
 At instantization, `EmissionLine` fits a linear model to the local continuum (`oiii[1]` and `oiii[2]`) and subtracts the model underneath the emission line.  That is, `my_line.wv` is the wavelengths of `my_spec` between `oiii[0,0]` and `oiii[0,1]` and `my_line.f` is the corresponding section of `my_spec.f` minus the continuum fit.
@@ -81,7 +81,7 @@ The _raison d'être_ of `LineModel` is to generate flux predictions at arbitrary
 You could use these predictions to, for example, subtract the line from the original spectrum:
 
     mask = ( my_spec.wv > oiii[0,0])*(my_spec.wv < oiii[0,1] )
-    fsubtract = my_spec.f[mask] - my_lmodel(my_spec.wv[mask])
+    my_spec.f[mask] -= my_lmodel(my_spec.wv[mask])
 
 If the parameters of the fit are of interest, you can access then with `my_lmodel.p` (and the covariance matrix, for errors, is stored in `my_lmodel.covar`), but you will have to check the individual functions to see which parameter is which.
 
@@ -134,7 +134,7 @@ Usually, you will want to optimize these parameters so that they match the refer
     from mapspec.mapspec import metro_hast
     chi2, p_best, frac_accept = metro_hast(5000, my_line, my_model)
 
-This will run an MCMC for 5000 steps, and try to optimize `my_model.p` so that `my_line` matches `lref` (which was specified when instantiating `my_model`).  `chi2` is the best (minimum) chi^2, p_best are the corresponding parameters, and frac_accept is the acceptance fraction of the chain.
+This will run an MCMC for 5000 steps, and try to optimize `my_model.p` so that `my_line` matches `lref` (which was specified when instantiating `my_model`).  `chi2` is the best (minimum) chi^2, `p_best` are the corresponding parameters, and `frac_accept` is the acceptance fraction of the chain.
 
 You then apply the model as above:
 
@@ -152,27 +152,27 @@ This will return the MCMC chain of parameters in `p_chain`.  `p_chain` is actual
 
 ## Important Warning ##
 
-Error propagation indicates that for a given operation on the flux array, the same operation should be carried out on the **square** of the error array.  Unfortunately, the squares are somewhat less stable numerically, which can result in strange behavior---for example, if you interpolate the array with b-splines, it is possible that the interpolated variances (square-errors) will go negative.
+Error propagation indicates that for a given operation on the flux array, the same operation should be carried out on the **square** of the error array.  Unfortunately, the squares are numerically somewhat less stable, which can result in strange behavior---for example, if you interpolate the array with b-splines, it is possible that the interpolated variances (square-errors) will go negative.
 
-Since this depends both on the input data and the operation, mapspec does nothing out of the normal except print a warning; it happily take the square-root of the negative variances as if nothing was wrong.  This procedure serves to flag the troublesome points with complex values in the errors.
+Since this depends both on the input data and the operation, mapspec does nothing out of the normal except print a warning---it then happily take the square-root of the negative variances as if nothing were wrong.  This procedure serves to flag the troublesome points with complex values in the errors.
 
-It is up to the user to decide how to deal with this issues.  For example, one might change the operation (maybe linear interpolation instead of b-splines), or modifying the data (either changing the errors before hand, or masking/editing the flagged fluxes/uncertainties).
+It is up to the user to decide how to deal with this issues.  For example, one might change the operation (maybe linear interpolation instead of b-splines), or modifying the data (either changing the errors beforehand, or masking/editing the flagged fluxes and uncertainties).
 
 ## Calculation of the Likelihood and Fitting Procedure##
 
 mapspec aligns the data and the model by minimzing: (data - model)^2/error^2, where data is the input line, model is the reference value chosen at instantization, and error^2 = (reference error)^2 + (data error)^2.  In other words, mapspec takes a maximum likelihood approach, assuming normally distributed residuals and independent uncertainties on the data and reference.
 
-In order to keep the likelihood well-defined, mapsepc raises an exception if the variance array goes negative during the fit.  This can be a problem for spectra with sharp features and models with complicated smoothing kernels, and is an exception to the above note (where the negative variances are largely ignored).
+In order to keep the likelihood well-defined, mapsepc raises an error if the variance array goes negative during the fit.  This can be a problem for spectra with sharp features and models with complicated smoothing kernels.  This treatment is an exception to the above note (where the negative variances are largely ignored).
 
-Because of wavelength shifts and edge-effects from convolution, there can be problems aligning the edges of the fitting region---in order to censor these points, it would be necessary to change the amount of data, and therefore the number of degrees-of-freedom, during the fit.  To prevent this while mitigating the edge-effects, mapspec ignores 10% of the data (5% on each end) when calculating the likelihood.  Although this is not an optimal solution, it does produces reasonable results and is an acceptable compromise for the sake of simplicity  and practicability.
+Because of wavelength shifts and edge-effects from convolution, there can be problems aligning the edges of the fitting region---in order to censor these points, it would be necessary to change the amount of data, and therefore the number of degrees-of-freedom, during the fit.  To prevent this while mitigating the edge-effects, mapspec ignores 10% of the data (5% on each end) when calculating the likelihood.  Although this is not an optimal solution, it does produces reasonable results and appears to be a reasonable compromise between correctness, simplicity,  and practicability.
 
-It is therefore suggested to choose the fitting region (line wavelengths) slightly larger than would naively be expected for isolating the emission line flux.  It is also suggested to remove large shifts (greater than 1 pixel) before performing the fit.  A convenience function `mapspec.mapspec.get_cc` is provided to cross correlate two spectra, and calculate the relative shift to the nearest pixel (but reported in wavelength units).  See `do_map.py` for an example.
+It is therefore suggested to choose the fitting region (line wavelengths) slightly larger than would naively be expected for isolating the emission line flux.  It is also suggested to remove large shifts (greater than 1 pixel) before performing the fit.  A convenience function `mapspec.mapspec.get_cc` is provided to cross correlate two spectra---see `do_map.py` for an example.
 
-In the Bayesian frame-work, priors are *always* added into the likelihood calculation.  mapspec assumes uniform priors on all parameters, so the priors do not explicity affect the calculation of the log-likelihood.  Note that a flat prior *is informative* for the case of the scaling parameter---however, because the rescaling is a factor of a few (not many orders of magnitude), this situation makes little difference.
+In the Bayesian framework, priors are *always* added into the likelihood calculation.  mapspec assumes uniform priors on all parameters, so the priors do not explicitly enter into the calculation of the log-likelihood.  Note that a flat prior *is informative* for the case of the scaling parameter---however, because the rescaling is a factor of a few (not many orders of magnitude), this situation makes little difference.
 
-When using a Gauss-Hermite Kernel, h3 and h4 are constrained to be > -0.3 and < 0.3; experimentation shows that this range is sufficient to produce a wide range of emission line shapes.  The finite interval is enforced by setting the prior probability to 0 outside of this interval.  Similarly, strange behavior will occur if the kernel width drops below the spectral resolution (a kind of under-sampling).  A minimum kernel width is imposed at 1/2 of the wavelength spacing in a similar way.
+When using a Gauss-Hermite Kernel, h3 and h4 are constrained to be > -0.3 and < 0.3; experimentation shows that this range is sufficient to produce a wide range of emission line shapes.  The finite interval is enforced by setting the prior probability to 0 outside of this interval.  Similarly, strange behavior will occur if the kernel width drops below the spectral resolution (a kind of undersampling/aliasing effect).  A minimum kernel width is imposed at 1/2 of the wavelength spacing of the reference data.
 
-`RescaleModel` objects have the option to add priors, either through a function provided by the user or from posterior distributions of previous runs stored in `Chain` objects.  See `do_map.py` for an example.
+`RescaleModel` objects have the option to add priors, either through a function provided by the user or from posterior distributions stored in `Chain` objects.  See `do_map.py` for an example.
 
 * * *
 # Methods #
@@ -187,7 +187,7 @@ When using a Gauss-Hermite Kernel, h3 and h4 are constrained to be > -0.3 and < 
 |`Spectrum`|`set_interp`| kwargs| Change interpolation style (see `style` below).  Keywords for custom b-splines and sinc interpolation are also provided here.|
 |`Spectrum`|`rebin`| `xnew` | Rebins the spectrum to wavelengths `xnew`.  Modifies `Spectrum.wv`,`Spectrum.f`, and `Spectrum.ef`.|
 |`Spectrum`|`extinction_correct`| `E_BV`, `RV`| De-extinguish the spectrum for a [CCM89](http://adsabs.harvard.edu/abs/1989ApJ...345..245C) extinction law, for a given E(B-V) (`E_BV`) and R_V (`RV`).  Modifies `Spectrum.f`, and `Spectrum.ef`.|
-|`Spectrum`|`smooth`| `width`,`name`| Smooths the spectrum with a kernel of width `width` specified with `name` (drawn from `scipy.signal.get_window`).  Modifies `Spectrum.f`, and `Spectrum.ef`.  Edge-effects are treated by replacing with the original spectrum (size `width` on both sides).|
+|`Spectrum`|`smooth`| `width`,`name`| Smooths the spectrum with a kernel of width `width` specified with `name` (calculated with `scipy.signal.get_window`).  Modifies `Spectrum.f`, and `Spectrum.ef`.  Edge-effects are treated by replacing with the original spectrum (a number of pixels equal to `width` on both edges).|
 |`Spectrum`|`velocity_smooth`| `v_width`| Smooths the spectrum with a velocity dispersion of width `v_wdith` (in km/s) by rebinning evenly in log wavelength.  Modifies `Spectrum.f`, and `Spectrum.ef`.  Converts back to original wavelengths, but cannot support sinc interpolation (unevenly spaced wavelengths).|
 |`Spectrum`| `wv`| Attribute| numpy array of wavelengths.|
 |`Spectrum`| `f`| Attribute| numpy array of fluxes.|
@@ -199,7 +199,7 @@ When using a Gauss-Hermite Kernel, h3 and h4 are constrained to be > -0.3 and < 
 
 | Object | Method | args | Description |
 |--------|--------|------|-------------|
-|`EmissionLine`|`__init__`|Spec, `window`, `cwindow`| `Spec` is a `Spectrum` object from which to extract the `EmissionLine`.  `window` gives the wavelength region of the line (blue edge first).  `cwindow` is a 2x2 list/array that specifies the continuum.  Each row is a continuum region, which must have the blue edge first, but the blue and red regions may be in any order.|
+|`EmissionLine`|`__init__`|`Spec`, `window`, `cwindow`| `Spec` is a `Spectrum` object from which to extract the `EmissionLine`.  `window` gives the wavelength region of the line (inclusive, blue edge first).  `cwindow` is a 2x2 list/array that specifies the continuum.  Each row is a continuum region (exclusive), which must have the blue edge first, but the blue and red regions may be in any order.|
 |`EmissionLine`|`integrate_line`|        | Returns total line flux using `scipy.integrate.simps`.|
 |`EmissionLine`|`equivalent_width`|      | Returns integrated flux divided by mean continuum.|
 |`EmissionLine`|`wv_mean` |  | Returns first moment of the line.|
@@ -228,4 +228,3 @@ When using a Gauss-Hermite Kernel, h3 and h4 are constrained to be > -0.3 and < 
 |`LineModel`| `wv`| Attribute|  Saves `EmLine.wv`.|
 |`LineModel`| `lf`| Attribute|  Saves `EmLine.f`.|
 |`LineModel`| `elf`| Attribute|  Saves `EmLine.ef`.|
-
