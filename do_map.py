@@ -10,29 +10,28 @@ from copy import deepcopy
 
 import sys
 
+istyle = sys.argv[3]
 
-sref   = TextSpec(sys.argv[1])
+sref   = TextSpec(sys.argv[1],style=istyle)
 window = sp.genfromtxt(sys.argv[2])
 
 lref   = EmissionLine(sref,window[0],[ window[1],window[2] ] )
 
-istyle = sys.argv[3]
-lref.set_interp(style=istyle)
+#lref.set_interp(style=istyle)
 
 speclist = sp.genfromtxt(sys.argv[4],dtype=str)
 fout = open('mapspec.params','a')
 
 for spec in speclist:
     print spec
-    s = TextSpec(spec)
-    s.set_interp(style=istyle)
+    s = TextSpec(spec,style=istyle)
+#    s.set_interp(style=istyle)
 
     s0 = get_cc(sref.f,s.f,sref.wv,s.wv)
     s.wv -= s0[0]
 
     l = EmissionLine(s,window[0],[ window[1],window[2] ])
     l.set_interp(style=istyle)
-
 
     f   = RescaleModel(lref,kernel="Delta")
     try: 
@@ -50,12 +49,15 @@ for spec in speclist:
         
     if chi2_delta < chi2_gauss:
         f.p = {'shift':p_delta['shift'], 'scale':p_delta['scale'], 'width': 0.001 }
+    else:
+        f.p = p_gauss
 
     sout,dummy = f.output(s)
     sp.savetxt('scale_'+spec,sp.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
 
+    
     f    = RescaleModel(lref,kernel="Hermite")
-    f.make_dist_prior(chain_gauss,'width')
+#    f.make_dist_prior(chain_gauss,'width')
 
 
     try:
@@ -64,22 +66,27 @@ for spec in speclist:
         chi2_herm,p_herm,frac_herm = 999, {'shift':99,'scale':-99,'width':-99,'h3':-99,'h4':-99}, 0 
 
     if chi2_delta < chi2_herm:
-        print 'Alt!'
         f.p = {'shift':p_delta['shift'], 'scale':p_delta['scale'], 'width': 0.001 , 'h3':0.0, 'h4':0.0}
+    else:
+        f.p = p_herm
 
     sout,dummy = f.output(s)
-    sp.savetxt('scale.h._'+spec,sp.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
 
     fout.write(
-        "%15s %10.2f % 8.4f % 8.4f % 5.2f %10.2f % 8.4f % 8.4f % 8.4f % 5.2f % 10.2f % 8.4f % 8.4f % 8.4f % 5.4e % 5.4e %8.4f\n"%
-        (spec,
+        "%15s % 8.4f  %10.2f % 8.4f % 8.4f % 5.2f %10.2f % 8.4f % 8.4f % 8.4f % 5.2f % 10.2f % 8.4f % 8.4f % 8.4f % 5.4e % 5.4e %8.4f\n"%
+        (spec,s0[0],
          chi2_delta,p_delta['shift'],p_delta['scale'], frac_delta,
          chi2_gauss,p_gauss['shift'],p_gauss['scale'],p_gauss['width'],frac_gauss,
          chi2_herm,p_herm['shift'],p_herm['scale'],p_herm['width'],p_herm['h3'],p_herm['h4'],frac_herm)
         )
     fout.flush()
-#    chain_gauss.save(spec+'.chain.gauss')
-#    chain_herm.save(spec+'.chain.herm')
+    sp.savetxt('scale.h._'+spec,sp.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
+
+
+    chain_gauss.save(spec+'.chain.gauss')
+    chain_herm.save(spec+'.chain.herm')
+
+
         
     plt.close('all')
 fout.close()

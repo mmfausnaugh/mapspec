@@ -21,15 +21,8 @@ from copy import deepcopy
 
 import matplotlib.pyplot as plt
 
-__all__ = ['bootstrap','Spectrum','EmissionLine','LineModel','TextSpec','TextSpec_2c','FitsSpec']
+__all__ = ['extinction','Spectrum','EmissionLine','LineModel','TextSpec','TextSpec_2c','FitsSpec']
 
-def bootstrap(Spec,func,N=1000):
-    dist = []
-    for i in range(N):
-        Spec.redistribute()
-        dist.append(func(Spec))
-        Spec.restore()
-    return sp.percentile(dist,[15.4,84.7])
 
 def extinction(lambda1in,R,unit = 'microns'):
 ###This is CCM89, and assumes microns
@@ -96,7 +89,7 @@ class Spectrum(object):
 
     
     """
-    def __init__(self,style = 'sinc'):
+    def __init__(self,style = 'linear'):
         self._wv  = None
         self._f   = None
         self._ef  = None
@@ -119,7 +112,8 @@ class Spectrum(object):
     def wv(self,wvnew):
         self._wv  = wvnew
         if self.f is not None:
-            self.set_interp(style = self.style)
+            if self.f.size == self._wv.size:
+                self.set_interp(style = self.style)
 
     @property
     def f(self):
@@ -209,9 +203,9 @@ class Spectrum(object):
                 fbin[j]  = sp.mean(yinsert[iuse])
                 efbin[j] = sp.mean(zinsert[iuse])
 
-        self.wv = xnew
+        self._wv = xnew
         if self.ef is not None:        
-            self.ef = efbin            
+            self._ef = efbin            
         self.f = fbin
         assert self.wv.size == self.f.size
 
@@ -280,6 +274,7 @@ class Spectrum(object):
         kw = round(dpix*10)
         if kw%2 == 0:
             kw += 1
+            print dpix, kw
         W = get_window(('gaussian', dpix),kw)
         W /= abs(sp.sum(W))
 
@@ -303,6 +298,25 @@ class Spectrum(object):
 
         if flag ==1:
             self.set_interp(style='sinc')
+
+def linfit(x,y,ey):
+    """
+    This function minimizes chi^2 for a least squares fit to a simple
+    linear model.  The errors in x are assumed to be much smaller than
+    the errors in y. 
+
+    The function returns p, and covar.  p[0] is the zeropoint p[1] is
+    the slope.  Covar is the covariance matrix---parameter errors are
+    the sqrt of its diagonal.
+    """
+    C = sp.array([sp.sum(y/ey/ey),sp.sum(y*x/ey/ey)])
+    A = sp.array([
+            [sp.sum(1./ey/ey), sp.sum(x/ey/ey)],
+            [sp.sum(x/ey/ey),  sp.sum(x*x/ey/ey)]
+            ] )
+    p     = linalg.solve(A,C)
+    covar = linalg.inv(A)
+    return p,covar
 
 class EmissionLine(Spectrum):
     """
@@ -337,7 +351,7 @@ class EmissionLine(Spectrum):
         wvfit = Spec.wv[mc] - Spec.wv[mc].mean()
         ffit  = Spec.f[mc]  - Spec.f[mc].mean()
 
-        cfit,covar = tools.linfit(wvfit,ffit,Spec.ef[mc])
+        cfit,covar = linfit(wvfit,ffit,Spec.ef[mc])
 
         wvsub = self.wv - Spec.wv[mc].mean()
 
@@ -346,9 +360,18 @@ class EmissionLine(Spectrum):
         self.ecf = sp.sqrt(covar[0,0] + covar[1,1]*wvsub + 2*covar[0,1]*wvsub)
 
         self.f  = Spec.f[ml] - self.cf
-#Think about this step---it is likely to be dominating the error for monte carlo line integrations
         self.ef = sp.sqrt(Spec.ef[ml]**2 + self.ecf**2 )
 
+        self._get_cumulative_flux()
+
+
+    def _get_cumulative_flux(self):
+        cflux = [0]
+        for w in self.wv[1::]:
+            m = self.wv <= w
+            fint = simps(self.f[m], self.wv[m])
+            cflux = sp.r_[cflux,fint]
+        self._cumulative_flux = interp1d(cflux,self.wv)
 
     def integrate_line(self):
         return simps(self.f,self.wv)
@@ -357,7 +380,7 @@ class EmissionLine(Spectrum):
         ltot = simps(self.f,self.wv)
         cmean  = sp.sum(self.cf/self.ecf**2)/sp.sum(1./self.ecf**2)
         ecmean = sp.sqrt(1./sp.sum(1./self.ecf**2))
-        return ltot/cmean,ecmean
+        return ltot/cmean
         
     def wv_mean(self):
         moment = simps(self.wv*self.f,self.wv)
@@ -366,64 +389,104 @@ class EmissionLine(Spectrum):
 
     def wv_median(self):
         ftarget = 0.5*self.integrate_line()
-        for i in range(self.wv.size):
-            if i == 0: continue
-
-            m = self.wv < self.wv[i]
-            ftest = simps(self.f[m],self.wv[m])
-            #is this too harsh, since there is a gap in the middle?
-            if abs(ftarget - ftest) <= 1.e-5:
-                #check other side
-                m2 = self.wv >= self.wv[i + 1]
-                ftest2 = simps(self.f[m2],self.wv[m2])
-                if abs(ftest - ftest2) < 1.e-5:
-                    return ( self.wv[i] + self.wv[i+1] )/2.
-                else:
-                    raise ValueError("Didn't find the wavelength that splits the integral in two.")
-
+        return self._cumulative_flux(ftarget)
 
 
     def dispersion(self):
         l0 = self.wv_mean()
         moment = simps(self.wv**2*self.f,self.wv)
         norm   = self.integrate_line()
+#        l0 = sp.sum(self.wv*self.f)/sp.sum(self.f)
+#        moment = sp.sum(self.wv**2*self.f)
+#        norm = sp.sum(self.f)
+
         return sp.sqrt(moment/norm - l0**2)
 
+    def mad(self):
+        wv_abs = sp.absolute(self.wv - self.wv_median())
+        moment = simps(wv_abs*self.f,self.wv)
+        norm = self.integrate_line()
+        return moment/ norm
+
     def fwhm(self, center):
-        mred = self.wv >=center
-        mblue = self.wv < center
+        #need to give the center of the line, to decide if
+        #double-peaked or not
+        rmask = self.wv >=center
+        bmask = self.wv < center
 
         #check double peaked
-        bmax_i = sp.where( self.f == self.f[mblue].max() )[0]
-        rmax_i = sp.where( self.f == self.f[mred].max()  )[0]
+        bmax   = self.f[bmask].max()
+        bmax_i = sp.where( self.f == bmax)[0]
+        rmax   = self.f[rmask].max()
+        rmax_i = sp.where( self.f == rmax)[0]
+
+
         wvmask = (self.wv > self.wv[bmax_i] )*(self.wv < self.wv[rmax_i] )
-        #what to do if profile is noisy, and therefore non-monotonic, but not double peaked?
-        check = sp.diff( self.f[wvmask] )
-        if self.f[bmax_i].max() < self.f[rmax_i].max():
-            if (check < 0).any():
-                doublepeaked = True
-            else:
-                doublepeaked = False
+        if (self.f[wvmask].size > 0 ) and ( self.f[wvmask] < min(bmax, rmax)  ).any():
+            doublepeaked = True
         else:
-            if (check > 0).any():
-                doublepeaked = True
+            doublepeaked = False
+
+        if doublepeaked == False:            
+            if rmax > bmax:
+                bmax = rmax
+                bmax_i = rmax_i
             else:
-                doublepeaked = False
+                rmax = bmax
+                rmax_i = bmax_i
 
-        if doublepeaked = False:            
-            ftarget = 0.5*self.f.max()
-            fdiff = self.f - ftarget
-            
-            inflect = []
-            for i range(fdiff.size - 1):
-                if fdiff[i] < 0 and fdiff[i + 1] > 0:
-                    inflect.append(i)
-                if fdiff[i] > 0 and fdiff[i+1] < 0:
-                    inflect.append(i)
+        #blue side
+        ftarget = 0.5*bmax
+        for i in range(bmax_i):
+            if self.f[i] > ftarget:
+                slope = ( self.wv[i] - self.wv[i - 1] )/( self.f[i] - self.f[i - 1] )
+                b1 = self.wv[i - 1] + slope*(ftarget - self.f[i - 1])
+                break
 
-            assert len(inflect) == 2
+        for i in range(bmax_i):
+            j = bmax_i - i
+            if self.f[j] < ftarget:
+                slope = ( self.wv[j] - self.wv[j + 1] )/( self.f[j] - self.f[j + 1] )
+                b2 = self.wv[j + 1] + slope*(ftarget - self.f[j + 1])
+                break
 
+        fwhm_blue = (b1 + b2)/2.
 
+        #red side
+        ftarget = 0.5*rmax
+        for i in range(self.wv.size - 1 - rmax_i):
+            j = self.wv.size - 1 - i
+            if self.f[j] > ftarget:
+                slope = ( self.wv[j] - self.wv[j + 1] )/( self.f[j] - self.f[j + 1] )
+                r1 = self.wv[j + 1] + slope*(ftarget - self.f[j + 1])
+                break
+
+        for i in range(self.wv.size - 1 - rmax_i):
+            j = rmax_i + i
+            if self.f[j] < ftarget:
+                slope = ( self.wv[j] - self.wv[j - 1] )/( self.f[j] - self.f[j - 1] )
+                r2 = self.wv[j - 1] + slope*(ftarget - self.f[j - 1])
+                break
+
+        fwhm_red = (r1 + r2)/2.
+        return ( (fwhm_red - fwhm_blue)[0], (fwhm_blue - center)[0], (fwhm_red - center)[0], doublepeaked)
+
+    def ip_wv(self,frac):
+        f1 = 0.5*frac*self.integrate_line()
+        f2 = (1. - 0.5*frac)*self.integrate_line()
+
+        w1 = self._cumulative_flux(f1)
+        w2 = self._cumulative_flux(f2)
+
+        return (w2 - w1, w1, w2)
+
+    def ipv(self,frac,center):
+        dlam, lam1, lam2 = self.ip_wv(frac)
+        #assumes km/s
+        dvel = dlam/center*2.997925e5 
+        dvel_blue = (lam1 - center)/center*2.997925e5 
+        dvel_red  = (lam2 - center)/center*2.997925e5 
+        return (dvel, dvel_blue, dvel_red)
 
 class LineModel(EmissionLine):
     """
@@ -464,7 +527,11 @@ class LineModel(EmissionLine):
         self.fuse,pinit = self._init_params(func,x,y,nline,linedata)
         #all the heavy lifting is in this step
         self.p,self.covar = tools.fitfunc(self.fuse,pinit,x,y,z)
-
+#        self.fuse,pinit,pbounds = self._init_params(func,x,y,nline,linedata)
+        #all the heavy lifting is in this step
+#        print pbounds
+#        self.p = tools.fitfunc_bound(self.fuse,pinit,x,y,z,pbounds)
+#        print self.p
 
 
     def _init_params(self,func,x,y,nline,*argv):
@@ -565,12 +632,26 @@ class LineModel(EmissionLine):
 #        pbound = []
 #        for i in range(len(pinit)):
 #            if i%nparams[func] == 0:
-#                pbound.append( (0,None))
+##                pbound.append( 
+##                    {'type':'ineq',
+##                     'fun':lambda x: sp.array([x[0]]),
+##                     'jac':lambda x: sp.array([1.])
+##                     }
+##                    )
+#                pbound.append( (0,None) )
 #            else:
+##                pbound.append( )
+##                    {'type':'ineq',
+##                     'fun':lambda x: sp.array([x[0]]),
+##                     'jac':lambda x: sp.array([1.])
+##                     }
+##                    )
+#
 #                pbound.append( (None,None))
-
+#
 #        return fuse,pinit,tuple(pbound)
 
+ 
     def __call__(self,x):
         return self.fuse(x,self.p)
 

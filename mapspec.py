@@ -1,5 +1,6 @@
 import scipy as sp
 from scipy.integrate import simps
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from spectrum import *
 from copy import deepcopy
@@ -228,6 +229,7 @@ class Chain(object):
         self.lnlikely = []
 
         self.index   = {}
+        self.figure = None
 
 #        self.figure,(self.axes) = plt.subplots(len(pnames) + 1,1)
 
@@ -264,11 +266,20 @@ class Chain(object):
 
         assert max(self.index.values()) == sp.transpose(self.pchain).shape[0] - 1
 
-        self.figure,(self.axes) = plt.subplots( sp.transpose(self.pchain).shape[0] + 1,1)
+
+    def burn(self,frac):
+        assert frac < 1
+        cuti = int(frac*self.pchain.shape[0])
+        self.pchain = self.pchain[cuti::]
+        
 
 
     def plot(self,interact = 1):
         plotp = sp.transpose(self.pchain)
+        if self.figure is None:
+            self.figure,(self.axes) = plt.subplots( sp.transpose(self.pchain).shape[0] + 1,1)
+
+
         for ax in self.axes: ax.cla()
 
         self.axes[0].plot(self.lnlikely)
@@ -289,6 +300,8 @@ class Chain(object):
 
     def plot_hist(self):
         plotp = sp.transpose(self.pchain)
+        if self.figure is None:
+            self.figure,(self.axes) = plt.subplots( sp.transpose(self.pchain).shape[0] + 1,1)
         for ax in self.axes: ax.cla()
         
         self.axes[0].hist(self.lnlikely,bins = 0.01*len(self.lnlikely))
@@ -301,6 +314,56 @@ class Chain(object):
 
 #        self.figure.set_size_inches(8,5)
         self.figure.tight_layout()
+
+    def plot_corr(self):
+        plotp = sp.transpose(self.pchain)
+        if self.figure is None:
+            self.gs1 = gridspec.GridSpec(plotp.shape[0],plotp.shape[0])
+
+        for k1 in self.index.keys():
+            for k2 in self.index.keys():
+                if self.index[k1] > self.index[k2]: continue
+                ax = plt.subplot(
+                    self.gs1[
+                        plotp.shape[0]-self.index[k1] - 1, plotp.shape[0]- self.index[k2] -1
+                        ]
+                    )
+
+                if k1 == k2:
+                    ax.hist(plotp[self.index[k1] ],0.01*len(plotp[ self.index[k1] ]),facecolor='k',alpha=0.5)
+                else:
+                    ax.plot(plotp[self.index[k2]],plotp[self.index[k1]],'ko',ms=2,rasterized=True,alpha=0.15)
+
+                if self.index[k2] == plotp.shape[0] - 1:
+                    ax.set_ylabel(k1)
+                    if self.index[k1] != 0:
+                        ax.set_xticklabels([])
+                        ax.tick_params(labelright=True)
+                    else:
+                        ax.set_xlabel(k2)
+
+                elif self.index[k1] == 0:
+                    ax.set_xlabel(k2)
+                    if self.index[k2] == 0:
+                        ax.yaxis.tick_right()
+                    else:
+                        ax.set_yticklabels([])
+
+
+                elif self.index[k1] == self.index[k2]:
+                    ax.yaxis.tick_right()
+                    if self.index[k1] != plotp.shape[0] - 1:
+                        ax.set_xticklabels([])
+
+
+
+                else:
+                    ax.set_xticklabels([])
+                    ax.set_yticklabels([])
+
+
+
+        plt.gcf().subplots_adjust(hspace=0,wspace=0)
 
 
 

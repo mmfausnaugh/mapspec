@@ -140,8 +140,12 @@ class SincInterp(object):
 
         #just do linear interpolation on the section spoiled by the
         #convolution
-        edge = 2*self.kw + 1
-
+        if self.window =='lanczos':
+            edge = 11.
+        elif self.window =='cubic_conv':
+            edge = 5.
+        else:
+            edge = 2*self.kw + 1
         if i < edge :
             z = interp1d(self.x,self.y)
             yi[i] = z(x1)
