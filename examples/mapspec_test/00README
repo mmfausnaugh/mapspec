@@ -1,0 +1,22 @@
+These are data from the 2014 MDM reverberation mapping campaign.
+Included are 3 spectra from two nights: 2014 01 10 (UT) was
+photometric, 2014 04 17 was cloudy and requires significant rescaling.
+
+Also included is a reference, ref.smooth.txt.  This was constructed by
+averaging observations on photometric nights, then smoothing so that
+FWHM of the [OIII]lambda5007 line matches that of the worst epoch.
+
+There is also a sample window file, oiii.window (for 5007 angstroms,
+observed frame).
+
+To test mapspec.py, try
+
+bash ../../run_map.py
+
+It will start printing the spectrum name, then the iteration number,
+best chi^2, and current chi^2.  You'll get several output files as
+well--- scale_mcg0811_NNN_YYMMDD.txt and
+scale.h._mcg0811_NNN_YYMMDD.txt which are the rescaling with a
+Gaussian kernel and Gauss-Hermite Kernel, respectively.  You calso get
+the MCMC chains (posterior parameter distribution) and
+'mapspec.params', which keeps a list of the best-fit parameterse.
