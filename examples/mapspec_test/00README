@@ -1,4 +1,6 @@
-These are data from the 2014 MDM reverberation mapping campaign.
+These are data from the 2014 MDM reverberation mapping campaign, which 
+can be used to test the rescaling procedure.
+
 Included are 3 spectra from two nights: 2014 01 10 (UT) was
 photometric, 2014 04 17 was cloudy and requires significant rescaling.
 
@@ -16,7 +18,7 @@ bash ../../run_map.py
 It will start printing the spectrum name, then the iteration number,
 best chi^2, and current chi^2.  You'll get several output files as
 well--- scale_mcg0811_NNN_YYMMDD.txt and
-scale.h._mcg0811_NNN_YYMMDD.txt which are the rescaling with a
-Gaussian kernel and Gauss-Hermite Kernel, respectively.  You calso get
-the MCMC chains (posterior parameter distribution) and
-'mapspec.params', which keeps a list of the best-fit parameterse.
+scale.h._mcg0811_NNN_YYMMDD.txt, which are the rescaling with a
+Gaussian kernel and Gauss-Hermite Kernel, respectively.  You will also get
+the MCMC chains (posterior parameter distribution) in the directory 'chains' and
+the best-fit parameters (and chi^2 and acceptance fraction) in 'mapspec.params'.
