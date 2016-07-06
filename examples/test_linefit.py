@@ -1,5 +1,9 @@
 import scipy as sp
 import matplotlib.pyplot as plt
+import sys
+
+sys.path.append('..')
+
 from mapspec.spectrum import TextSpec,TextSpec_2c,EmissionLine,LineModel
 """
 Examples for how to use the line fitting functionality, and to test

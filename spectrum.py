@@ -2,7 +2,7 @@ import scipy as sp
 from scipy.interpolate import interp1d
 from scipy.integrate import simps
 from scipy.signal import get_window
-
+from scipy import linalg,optimize
 from numpy.polynomial.hermite import Hermite as H
 
 from astropy.io import ascii,fits
@@ -10,10 +10,6 @@ from astropy.table import Table,Column
 
 import re
 
-#from . import tools
-#from . import sinc_interp as si
-import tools
-#from sinc_interp_old import SincInterp
 from sinc_interp import SincInterp
 from bsplines import Bspline
 
@@ -21,71 +17,22 @@ from copy import deepcopy
 
 import matplotlib.pyplot as plt
 
-__all__ = ['extinction','Spectrum','EmissionLine','LineModel','TextSpec','TextSpec_2c','FitsSpec']
+__all__ = ['linear_interp_error','extinction','Spectrum','EmissionLine','LineModel','TextSpec','TextSpec_2c','FitsSpec']
 
 
-def extinction(lambda1in,R,unit = 'microns'):
-###This is CCM89, and assumes microns
-    if 'ang' in unit:
-        lambda1 = lambda1in/1.e4
-    else:
-        lambda1 = lambda1in
-
-    if (lambda1 > 100).all():
-        print "Check units!  This program assumes microns"
-
-    if (lambda1 > 3.0).any():
-        print  "Warning: extrapolating into the far IR (lambda > 3 microns)"
-    if (lambda1 < 0.125).any():
-        print 'Warning:  extreme UV is an extrapolation'
-    if (lambda1 < 0.1).any():
-        print 'warning: extrapolating into the extreme UV (lambda < 1000 A)'
 
 
-    a = sp.zeros(lambda1.size)
-    b = sp.zeros(lambda1.size)
-
-    m = (lambda1 > 0.909)
-    a[m] =  0.574*(1/lambda1[m])**(1.61)
-    b[m] = -0.527*(1/lambda1[m])**(1.61)
-        
-    m = (lambda1 > 0.30303)*(lambda1 <= 0.909)
-    x = 1/lambda1[m] - 1.82
-    a[m] = 1 + 0.17699*x - 0.50447*x**2 - 0.02427*x**3 + 0.72085*x**4 + 0.01979*x**5 - 0.7753*x**6 + 0.32999*x**7
-    b[m] =     1.41338*x + 2.28305*x**2 + 1.07233*x**3 - 5.38434*x**4 - 0.62251*x**5 + 5.3026*x**6 - 2.09002*x**7
-
-    m = (lambda1 > 0.125)*(lambda1 <= 0.30303)
-    x = 1/lambda1[m]
-    a[m] =  1.752 - 0.316*x - 0.104/( (x - 4.67)**2 + 0.341) 
-    b[m] = -3.090 + 1.825*x + 1.206/( (x - 4.62)**2 + 0.263) 
-
-    m = (lambda1 > 0.125)*(lambda1 <= 0.1695)
-    x = 1/lambda1[m]
-    a[m] += -0.04473*(x - 5.9)**2 - 0.009779*(x-5.9)**3
-    b[m] +=  0.21300*(x - 5.9)**2 + 0.120700*(x - 5.9)**3
-
-    m = (lambda1 < 0.125)
-    x = 1/lambda1[m]
-    a[m] = -1.073 - 0.628*(x - 8.) + 0.137*(x - 8.)**2 - 0.070*(x - 8.)**3
-    b[m] = 13.670 + 4.257*(x - 8.) - 0.420*(x - 8.)**2 + 0.374*(x - 8.)**3
-
-    return a + b/R
-
-
-###probably, the way to do this is make classes that inherit spectrum,
-###and have their own way of opening files
 class Spectrum(object):
     """
     A Spectrum class.
 
     In/out is handled by inheritance.  Ascii files (2 or 3 column) are
     quite general.  TextSpec uses scipy.genfromtxt.  fits files come
-    in a wide variety, and so are defined individually.  These make
-    use of astropy.io.fits.
+    in a wide variety, and so are defined individually.  fits files
+    need astropy.io.fits.
 
-    These can do arbitrary rebinning, smoothing, and interpolation
-    with different methods.  They also facilitate extinction, and line
-    analysis.
+    This object can do arbitrary rebinning, smoothing, and
+    interpolation.  It also facilitate extinction, and line analysis.
 
     
     """
@@ -108,6 +55,7 @@ class Spectrum(object):
     def wv(self):
         return self._wv
 
+    #anytime an attribute is changed, reset the interpolation to match
     @wv.setter
     def wv(self,wvnew):
         self._wv  = wvnew
@@ -135,8 +83,9 @@ class Spectrum(object):
 
 
 
-    def restore(self):
-        print('Restore data to default')
+    def restore(self,verbose=True):
+        if verbose:
+            print('Restore data to default')
         #restore to original wv, f, and ef
         self.wv  = deepcopy(self.wv_orig)
         self.ef  = deepcopy(self.ef_orig)
@@ -144,10 +93,16 @@ class Spectrum(object):
 #        self.sky = self.sky_orig
 
     def redistribute(self):
+        """
+        Perturb the spectrum by random gaussian deviates scaled to the
+        error spectrum.
+        """
         self.f += self.ef*sp.randn(self.ef.size)
 
     def interp(self,xnew):
-        #interpolate the spectrum at arbitrary points xnew
+        """
+        Interpolate the spectrum at arbitrary points xnew
+        """
         if self.ef is not None:
             zout = self._interpolator_error(xnew)
             if (zout == -1).any():
@@ -158,20 +113,41 @@ class Spectrum(object):
             return self._interpolator(xnew),sp.ones(xnew.size)
 
     def set_interp(self,style='sinc',window1='lanczos',kw1=15,order1=3):
-        #choose which interpolation technique to use.  Relevent for
-        #self.interp() and self.rebin()
+        """
+        Choose which interpolation technique to use.  Relevent for
+        self.interp() and self.rebin()
+
+
+        Note that errors are only rigorous for linear interpolation.
+        Otherwise, for now it will interpolate the squared error
+        spectrum using the method of choice (i.e., splines, sinc,
+        etc.).
+
+        Uses scipy.interp1d---anything that can be pased to 'kind'
+        keyword in this package is valid.
+        """
         self.style = style
         if style == 'sinc':
             self._interpolator = SincInterp(self.wv,self.f, window=window1,kw=kw1)
             if self.ef is not None:  self._interpolator_error = SincInterp(self.wv,self.ef**2, window=window1,kw=kw1)
+
         elif style == 'bspline':
             self._interpolator = Bspline(self.wv,self.f, order=order1)
             if self.ef is not None:  self._interpolator_error = Bspline(self.wv,self.ef**2,order=order1)
+
+        elif style == 'linear':
+            self._interpolator = interp1d(self.wv,self.f,kind=style)
+            if self.ef is not None:  self._interpolator_error = lambda xnew: linear_interp_error(self.wv,xnew, self.ef)
+
         else:
             self._interpolator = interp1d(self.wv,self.f,kind=style)
             if self.ef is not None:  self._interpolator_error = interp1d(self.wv,self.ef**2,kind=style)
 
     def rebin(self,xnew):
+        """
+        Rebin the spectrum on a new grid named xnew
+        """
+
         #Does not need equal spaced bins, but why would you not?
         xnew.sort()
 
@@ -210,15 +186,28 @@ class Spectrum(object):
         assert self.wv.size == self.f.size
 
     def extinction_correct(self,E_BV,RV,u='microns'):
+        """
+        Uses CCM89 to extinction correct the spectrum.  You need to
+        choose the reddening (which traces the hydrogen/dust column)
+        and the extinction law (RV)
+        """
+
         AV = RV*E_BV*extinction(self.wv,RV,unit=u)
         if self.ef is not None:
             self.ef /= 10**(-0.4*AV)
         self.f  /= 10**(-0.4*AV)
 
     def smooth(self,width,name='boxcar'):
-        """width is in disperision elements (pixels).  The name is a
-        call to sp.signal.get_window, so things like ('gaussian' 1.5)
-        are ok.  Because even widths are asymmetric, this only allows odd kernels.
+        """
+        Smooth a spectrum.
+
+        width = total number of pixels in the kernel 
+
+        name = a string used by sp.signal.get_window.  Things like
+        ('gaussian' 1.5) are ok, see scipy documentation. 
+
+        Because even widths are asymmetric, this only allows odd
+        kernels.
         """
         if width%2 == 0:
             raise ValueError("Only allows odd widths (even kernels are asymetric)")
@@ -234,7 +223,7 @@ class Spectrum(object):
         fsmooth[s2] = self.f[s2]
 
         if self.ef is not None:
-            efsmooth = sp.sqrt(sp.convolve(self.ef**2,W,mode='same'))
+            efsmooth = sp.sqrt(sp.convolve(self.ef**2,W**2,mode='same'))
             efsmooth[s1] = self.ef[s1]
             efsmooth[s2] = self.ef[s2]
             self.ef = efsmooth
@@ -244,11 +233,13 @@ class Spectrum(object):
 
 
     def velocity_smooth(self,v_width):
-        """ smooths with constant velcoity dispersion by resampling on
+        """ 
+        Smooths with constant velcoity dispersion by resampling on
         even log intervals, smooth with gaussian of specific width,
         and then resampling to original wavelengths.
 
-        Because log spacing is uneven, cannot use sinc interpolation (will use bsplines instead).
+        Because log spacing is uneven, cannot use sinc interpolation
+        (will use bsplines instead).
 
         Gaussian width is specified in km/s.
         """
@@ -287,7 +278,7 @@ class Spectrum(object):
 
 
         if self.ef is not None:
-            efsmooth = sp.sqrt(sp.convolve(self.ef**2,W,mode='same'))
+            efsmooth = sp.sqrt(sp.convolve(self.ef**2,W**2,mode='same'))
             efsmooth[s1] = self.ef[s1]
             efsmooth[s2] = self.ef[s2]
             self.ef = efsmooth
@@ -299,24 +290,6 @@ class Spectrum(object):
         if flag ==1:
             self.set_interp(style='sinc')
 
-def linfit(x,y,ey):
-    """
-    This function minimizes chi^2 for a least squares fit to a simple
-    linear model.  The errors in x are assumed to be much smaller than
-    the errors in y. 
-
-    The function returns p, and covar.  p[0] is the zeropoint p[1] is
-    the slope.  Covar is the covariance matrix---parameter errors are
-    the sqrt of its diagonal.
-    """
-    C = sp.array([sp.sum(y/ey/ey),sp.sum(y*x/ey/ey)])
-    A = sp.array([
-            [sp.sum(1./ey/ey), sp.sum(x/ey/ey)],
-            [sp.sum(x/ey/ey),  sp.sum(x*x/ey/ey)]
-            ] )
-    p     = linalg.solve(A,C)
-    covar = linalg.inv(A)
-    return p,covar
 
 class EmissionLine(Spectrum):
     """
@@ -362,10 +335,20 @@ class EmissionLine(Spectrum):
         self.f  = Spec.f[ml] - self.cf
         self.ef = sp.sqrt(Spec.ef[ml]**2 + self.ecf**2 )
 
+        self.wv_orig = deepcopy(self.wv)
+        self.f_orig  = deepcopy(self.f)
+        self.ef_orig = deepcopy(self.ef)
+#        self.sky_orig= deepcopy(self.sky)
+
         self._get_cumulative_flux()
 
 
     def _get_cumulative_flux(self):
+        """
+        Store a look-up table for the cumulative flux as a function of
+        wavelength.  This seems to be an efficient way of getting
+        things like velocity percentiles.
+        """
         cflux = [0]
         for w in self.wv[1::]:
             m = self.wv <= w
@@ -374,41 +357,71 @@ class EmissionLine(Spectrum):
         self._cumulative_flux = interp1d(cflux,self.wv)
 
     def integrate_line(self):
+        """
+        Integrate the line using Simpson's method.
+        """
         return simps(self.f,self.wv)
 
     def equivalent_width(self):
+        """
+        Calculate the equivalent width, using the linear continuum fit
+        under the line
+        """
         ltot = simps(self.f,self.wv)
         cmean  = sp.sum(self.cf/self.ecf**2)/sp.sum(1./self.ecf**2)
         ecmean = sp.sqrt(1./sp.sum(1./self.ecf**2))
         return ltot/cmean
         
     def wv_mean(self):
+        """
+        First moment of the line, i.e., mean wavelength
+        """
         moment = simps(self.wv*self.f,self.wv)
         norm = self.integrate_line()
         return moment/norm
 
     def wv_median(self):
+        """
+        50th percentile of the flux, i.e., median wavelength
+        """
         ftarget = 0.5*self.integrate_line()
         return self._cumulative_flux(ftarget)
 
 
     def dispersion(self):
+        """
+        Second moment of the line, i.e., dispersion
+        """
         l0 = self.wv_mean()
         moment = simps(self.wv**2*self.f,self.wv)
         norm   = self.integrate_line()
-#        l0 = sp.sum(self.wv*self.f)/sp.sum(self.f)
-#        moment = sp.sum(self.wv**2*self.f)
-#        norm = sp.sum(self.f)
 
         return sp.sqrt(moment/norm - l0**2)
 
     def mad(self):
+        """
+        MAD = mean absolute deviation.  Defined same as dispersion,
+        but uses absolute value instead of square.
+        """
         wv_abs = sp.absolute(self.wv - self.wv_median())
         moment = simps(wv_abs*self.f,self.wv)
         norm = self.integrate_line()
         return moment/ norm
 
     def fwhm(self, center):
+        """
+        Full-width at half maximum of the line.  See Peterson et
+        al. 2004 for a description of the algorith.
+
+        center = center wavelength of the line.  This should match
+        whatever data was read into the Spectrum/EmissionLine
+        object---i.e., no redshifting is done, so you must feed it the
+        observed/rest frame line wavelength as appropriate.
+
+        Keeps track of red and blue side because of the possibility of
+        double peaked lines.  A flag for double-peaked is also
+        returned.
+        """
         #need to give the center of the line, to decide if
         #double-peaked or not
         rmask = self.wv >=center
@@ -472,6 +485,12 @@ class EmissionLine(Spectrum):
         return ( (fwhm_red - fwhm_blue)[0], (fwhm_blue - center)[0], (fwhm_red - center)[0], doublepeaked)
 
     def ip_wv(self,frac):
+        """
+        Returns interpercentile range (of flux) in terms of
+        wavelengths.
+
+        frac should be a decimal
+        """
         f1 = 0.5*frac*self.integrate_line()
         f2 = (1. - 0.5*frac)*self.integrate_line()
 
@@ -481,6 +500,15 @@ class EmissionLine(Spectrum):
         return (w2 - w1, w1, w2)
 
     def ipv(self,frac,center):
+        """
+        Returns interpercentile range (of flux) in terms of
+        velocity.
+
+        frac should be a decimal
+
+        center is used to directly covner to velocity (returns km/s),
+        and follows the same perscription as EmissionLine.fwhm()
+        """
         dlam, lam1, lam2 = self.ip_wv(frac)
         #assumes km/s
         dvel = dlam/center*2.997925e5 
@@ -495,16 +523,18 @@ class LineModel(EmissionLine):
     An option is available to restrict the fit to a part of the line
     (window keyword).
 
-    Can also do multiple lines, although the model must be homogenous
-    (lines keyword).
+    Can also do multiple components, although the model must be
+    homogenous (lines keyword).
 
     Can 'float' the lines, by giving them a constant offset.  Say you
     only wanted to get rid of the narrow component, for example (set
     floating to True).
 
-    Finally, you can give it an emission line object, which will be
-    used as a template, and this will shift, rescale, and float the
-    empircal line.
+    One model is semi-empirical----you can give it an emission line
+    object, which will be used as a template, and this will shift,
+    rescale, and float the empircal line.
+
+    Note that the functional models are defined after this class.
     """
 
     def __init__(self,EmLine,func = 'gaussian',window = None,nline=1,floating=False,linedata = None):
@@ -526,11 +556,14 @@ class LineModel(EmissionLine):
 
         self.fuse,pinit = self._init_params(func,x,y,nline,linedata)
         #all the heavy lifting is in this step
-        self.p,self.covar = tools.fitfunc(self.fuse,pinit,x,y,z)
+        self.p,self.covar = fitfunc(self.fuse,pinit,x,y,z)
+
 #        self.fuse,pinit,pbounds = self._init_params(func,x,y,nline,linedata)
+#        print pbounds,pinit
         #all the heavy lifting is in this step
 #        print pbounds
-#        self.p = tools.fitfunc_bound(self.fuse,pinit,x,y,z,pbounds)
+#        print pinit
+#        self.p,dummy = fitfunc_bound(self.fuse,sp.array(pinit),x,y,z,pbounds)
 #        print self.p
 
 
@@ -613,7 +646,7 @@ class LineModel(EmissionLine):
             l = argv[0]
             fuse = lambda x,p : empiriline(x,p,l)
 
-        return fuse,pinit
+#        return fuse,pinit
 
 #        if func =='voigt':
 #            pinit = []
@@ -631,25 +664,15 @@ class LineModel(EmissionLine):
 #but can't get scipy constraint/bound system to work....        
 #        pbound = []
 #        for i in range(len(pinit)):
+#            #all the scales are above 0
 #            if i%nparams[func] == 0:
-##                pbound.append( 
-##                    {'type':'ineq',
-##                     'fun':lambda x: sp.array([x[0]]),
-##                     'jac':lambda x: sp.array([1.])
-##                     }
-##                    )
 #                pbound.append( (0,None) )
 #            else:
-##                pbound.append( )
-##                    {'type':'ineq',
-##                     'fun':lambda x: sp.array([x[0]]),
-##                     'jac':lambda x: sp.array([1.])
-##                     }
-##                    )
-#
 #                pbound.append( (None,None))
-#
+
+        
 #        return fuse,pinit,tuple(pbound)
+        return fuse,pinit
 
  
     def __call__(self,x):
@@ -675,8 +698,10 @@ nparams = {'gaussian':3,
            'approx-voigt':5,
            'data':3}
 
-#wrapper to iterate for each line
 def multiwrapper(func,x,p,np):
+    """
+    If you want several components, this will iteratively add them.
+    """
     puse = []
     y = 0
     for i in range(len(p)):
@@ -686,21 +711,28 @@ def multiwrapper(func,x,p,np):
             puse = []
     return y
 
-#wrapper to give a constant offset to arbitrary function
 def floating(func):
+    """
+    If you want a constant offset, this will modify any input function.
+    """
+    
     def floatfunc(x,p):
         return func(x,p[0:-1]) + p[-1]
     return floatfunc
 
 #for feeding a line template
 def empiriline(x,p,L):
+    """
+    Use the line L (which is an EmissionLine object) as a template.
+    The line is shifted, then interpolated, then rescaled, and allowed
+    to float.
+    """
     xnew = x - p[1]
     m = (xnew >= L.wv.min())*(xnew <= L.wv.max() )
     ynew,znew = L.interp(xnew[m])
     return p[0]*ynew + p[2]
 
 #functions for use with Line Model
-
 def gauss(x,p):
     return p[0]*sp.exp(-0.5*(x - p[1])**2/p[2]**2)
 
@@ -769,7 +801,16 @@ def approx_voigt(x,p):
 
 
 class TextSpec(Spectrum):
-    def __init__(self,ifile,style='sinc'):
+    """
+    A user level class, which will in intialize a Spectrum object from
+    a 3 column ascii file----this is actually acomplished through
+    inheritence.
+
+    The user only needs to specify the file name, although they can
+    change the interpolation method (linear, sinc, bsplines, etc.)
+    here.
+    """
+    def __init__(self,ifile,style='linear'):
         super(TextSpec,self).__init__()  
         self.style=style
         x,y,z = sp.genfromtxt(ifile,unpack=1,usecols = (0,1,2))
@@ -784,7 +825,12 @@ class TextSpec(Spectrum):
 
 
 class TextSpec_2c(Spectrum):
-    def __init__(self,ifile,style='sinc'):
+    """
+    As TextSpec, but for 2 column ascii files.  The error spectrum is
+    is set to a dummy array of ones.
+    """
+
+    def __init__(self,ifile,style='linear'):
         super(TextSpec_2c,self).__init__()  
         self.style=style
         x,y = sp.genfromtxt(ifile,unpack=1,usecols = (0,1))
@@ -797,7 +843,23 @@ class TextSpec_2c(Spectrum):
         self.ef_orig = deepcopy(self.ef)
 
 class FitsSpec(Spectrum):
-    def __init__(self,ifile, extension = 0,data_axis = 1, error_axis =3, x1key ='CRVAL1', dxkey='CD1_1', p1key='CRPIX1',style='sinc'):
+    """    
+    A user level class, which will in intialize a Spectrum object from
+    a fits file.  Uses astropy to read thing in.
+
+    One should look in the fits header for how to define the
+    wavelengths.  The python kewords give:
+
+    x1    = the initial wavelength (this is assigned to pixel from p1key, see below).
+    dxkey = Wavelength spacing, i.e., delta x
+    p1key = The pixel where the wavelength solution starts
+
+    The default keywords were chosen to match MDM spectra, which
+    follow usual IRAF conventions.  However, these conventions are
+    fairly loose, it's likely you'll have to change them for data from
+    different spectrographs.
+    """
+    def __init__(self,ifile, extension = 0,data_axis = 1, error_axis =3, x1key ='CRVAL1', dxkey='CD1_1', p1key='CRPIX1',style='linear'):
         super(FitsSpec,self).__init__()  
 
         data  = fits.getdata(ifile,extension)
@@ -820,3 +882,138 @@ class FitsSpec(Spectrum):
         return sp.r_[xlow:xhigh:dx]
 
 
+def linfit(x,y,ey):
+    """
+    This function minimizes chi^2 for a least squares fit to a simple
+    linear model.  The errors in x are assumed to be much smaller than
+    the errors in y. 
+
+    The function returns p, and covar.  p[0] is the zeropoint p[1] is
+    the slope.  Covar is the covariance matrix---parameter errors are
+    the sqrt of its diagonal.
+    """
+    C = sp.array([sp.sum(y/ey/ey),sp.sum(y*x/ey/ey)])
+    A = sp.array([
+            [sp.sum(1./ey/ey), sp.sum(x/ey/ey)],
+            [sp.sum(x/ey/ey),  sp.sum(x*x/ey/ey)]
+            ] )
+    p     = linalg.solve(A,C)
+    covar = linalg.inv(A)
+    return p,covar
+
+def fitfunc(func,pin,x,y,ey):
+    """
+    Non-linear least square fitter.  Assumes no errors in x.  Utilizes
+    scipy.optimize.leastsq.  Uses a Levenberg-Marquardt algorithm
+    (gradient chasing and Newton's method).  The user must provide an
+    object that is the functional form to be fit, as well as initial
+    guesses for the parameters.
+
+    This function returns the parameters and the covariance matrix.
+    Note that leastsq returns the jacobian, a message, and a flag as
+    well.
+    
+    """
+    merit = lambda params,func,x,y,ey:  (y - func(x,params))/ey
+    p,covar,dum1,dum2,dum3 = optimize.leastsq(merit,pin,args=(func,x,y,ey),xtol = 1e-8,full_output=1)
+    return p,covar
+
+def fitfunc_bound(func,pin,x,y,ey,pbound):
+    """
+    Non-linear least square fitter, with an option of contraints
+
+    ***********
+    
+    """
+    merit = lambda params,func,x,y,ey:  sp.sum( 
+        ( y - func(x,params) )**2/ey**2 
+        )
+    #return with weird object....
+    out,dum1,dum2 = optimize.fmin_l_bfgs_b(merit,
+                                           pin,
+                                           args=(func,x,y,ey),
+                                           #                                 tol = 1.e-15,
+                                           #                            method='L-BFGS-B',
+                                           bounds = pbound,
+                                           approx_grad=True,
+                                           epsilon=1.e-6,
+#                                           pgtol
+                                           #                                 options={'disp':True}
+                                           )
+#    out = optimize.minimize(merit,pin,args=(func,x,y,ey),tol = 1.e-8,method='SLSQP',constraints = pbound)
+#    print 'success:',out.success
+#    print out.message
+#    errors = sp.sqrt(ey**2 * out.jac**2)
+#    print out.keys()
+#    print 'iterations:',out.nit,out.nfev#, out.njev, out.nhev
+    print 'WARNING!!!',dum2['warnflag'],dum2['task']
+    return out
+
+def linear_interp_error(x,xinterp,z):
+    """
+    Does the actual calculation for error propagation on linear interpolation.
+
+    x = xold
+    xinterp = grid for interpolatin x
+    z = old error spectrum
+
+    Note, returns variance, i.e. (new error spectrum)**2
+    """
+
+    i = sp.searchsorted(x,xinterp)
+    f = (xinterp - x[i -1 ])/(x[i] - x[i -1])
+    return f**2*z[i]**2 + (1 - f)**2*z[i-1]**2
+
+def extinction(lambda1in,R,unit = 'microns'):
+    """
+    Calculates A(lambda)/A_V.  So, if we know E(B - V), we do
+    A(lambda) = A(lambda)/A_V * E(B - V) * R.  
+
+    R is alternatively R_V, usually 3.1---this parameterizes the extinction law, which you should know if you are using this function.
+
+    This is the CCM89 extinction law, which assumes microns.
+    """
+    if 'ang' in unit:
+        lambda1 = lambda1in/1.e4
+    else:
+        lambda1 = lambda1in
+
+    if (lambda1 > 100).all():
+        print "Check units!  This program assumes microns"
+
+    if (lambda1 > 3.0).any():
+        print  "Warning: extrapolating into the far IR (lambda > 3 microns)"
+    if (lambda1 < 0.125).any():
+        print 'Warning:  extreme UV is an extrapolation'
+    if (lambda1 < 0.1).any():
+        print 'warning: extrapolating into the extreme UV (lambda < 1000 A)'
+
+
+    a = sp.zeros(lambda1.size)
+    b = sp.zeros(lambda1.size)
+
+    m = (lambda1 > 0.909)
+    a[m] =  0.574*(1/lambda1[m])**(1.61)
+    b[m] = -0.527*(1/lambda1[m])**(1.61)
+        
+    m = (lambda1 > 0.30303)*(lambda1 <= 0.909)
+    x = 1/lambda1[m] - 1.82
+    a[m] = 1 + 0.17699*x - 0.50447*x**2 - 0.02427*x**3 + 0.72085*x**4 + 0.01979*x**5 - 0.7753*x**6 + 0.32999*x**7
+    b[m] =     1.41338*x + 2.28305*x**2 + 1.07233*x**3 - 5.38434*x**4 - 0.62251*x**5 + 5.3026*x**6 - 2.09002*x**7
+
+    m = (lambda1 > 0.125)*(lambda1 <= 0.30303)
+    x = 1/lambda1[m]
+    a[m] =  1.752 - 0.316*x - 0.104/( (x - 4.67)**2 + 0.341) 
+    b[m] = -3.090 + 1.825*x + 1.206/( (x - 4.62)**2 + 0.263) 
+
+    m = (lambda1 > 0.125)*(lambda1 <= 0.1695)
+    x = 1/lambda1[m]
+    a[m] += -0.04473*(x - 5.9)**2 - 0.009779*(x-5.9)**3
+    b[m] +=  0.21300*(x - 5.9)**2 + 0.120700*(x - 5.9)**3
+
+    m = (lambda1 < 0.125)
+    x = 1/lambda1[m]
+    a[m] = -1.073 - 0.628*(x - 8.) + 0.137*(x - 8.)**2 - 0.070*(x - 8.)**3
+    b[m] = 13.670 + 4.257*(x - 8.) - 0.420*(x - 8.)**2 + 0.374*(x - 8.)**3
+
+    return a + b/R
