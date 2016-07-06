@@ -1,6 +1,6 @@
 # mapspec #
 
-`mapspec` stands for **M**cmc **A**lgorithm for **P**arameters of **SPEC**tra.  It was originally designed to rescale astronomical spectra to a standard flux scale, following the formalism of [van Groningen & Wanders 1992](http://adsabs.harvard.edu/abs/1992PASP..104..700V).  Along the way, several spectra analysis tools useful for dealing with bright/broad emission lines have been implemented.
+`mapspec` stands for **M**cmc **A**lgorithm for **P**arameters of **SPEC**tra.  It was originally designed to rescale astronomical spectra to a standard flux scale, using a method similar to that of [van Groningen & Wanders 1992](http://adsabs.harvard.edu/abs/1992PASP..104..700V).  Along the way, several spectra analysis tools useful for dealing with bright/broad emission lines have been implemented.
 
 * * *
 
@@ -15,10 +15,12 @@ You will also need the following python packages installed:
 * matplotlib (for using built-in plotting functions)
 * astropy (for reading and writting fits files)
 
+Note that the code is in python 2.7---updating to python 3 is the first item on the to-do list.
+
 To test the installation, go to `examples` and try running the test scripts:
 
     python test_sincinterp.py
-    python test_rebin.py
+    python test_rebin.py   #this requires pyraf and iraf---will compare mapspec rebin with dispcor
     python test_linefit.py
 
 These mostly deal with data structures in `spectrum.py`; to test the rescaling procedure itself, go to `mapspec_test` and run
@@ -33,9 +35,11 @@ It is highly recommended that you learn how `do_map.py` works.  This is the scri
 
 `mapsec` is object-oriented and is designed to be modular and highly extensible.  It makes heavy use of numpy and scipy libraries, and was designed to easily integrate with these packages.
 
-There are two main parts of the program.
+There are two main parts of the program:  First, general-usage spectrum utilities, which are bundled in `spectrum.py`.  Second, the rescaling procedure, which is kept in `mapspec.py`.  
 
-First, there are general-usage spectrum utilities, which are bundled in `spectrum.py`.  Second is the rescaling procedure, which is kept in `mapspec.py`.  We begin by describing (with illustrative examples) the spectrum utilities.
+Some helpful scripts for constructing a reference spectrum are also provided----these are `ref_make.py` and `ref_smooth.py`, check the internal comments for details.
+
+We begin by describing (with illustrative examples) the spectrum utilities.
 
 * * *
 
@@ -51,7 +55,7 @@ or to get the number of pixels:
 
     print my_spec.wv.size
 
-`Spectrum` also has many useful methods to interpolate, rebin, extinction-correct, and smooth (or log-smooth) the data.  For example, this will rebin the spectrum to twice the original wavelength spacing:
+(to actually put data in the `Spectrum` object, see "Reading Data" below).  `Spectrum` also has many useful methods to interpolate, rebin, extinction-correct, and smooth (or log-smooth) the data.  For example, this will rebin the spectrum to twice the original wavelength spacing:
 
     import numpy as np
     dx = my_spec.wv[1] - my_spec.wv[0] #assumes even wavelength spacing throughout
@@ -116,6 +120,7 @@ Input from a file is handled with inheritance.  If you know what format your dat
                   p1key = 'CRPIX1'
                   )
 
+Two files with test data from NGC 5548 (3 column ascii) are in `examples` (test.LBT.dat and test.MDM.dat---test.dat is a copy of test.LBT.dat), and 6 spectra for rescaling are in `examples/mapspec_test`
 
 * * *
 
@@ -146,7 +151,7 @@ Usually, you will want to optimize these parameters so that they match the refer
     from mapspec.mapspec import metro_hast
     chi2, p_best, frac_accept = metro_hast(5000, my_line, my_model)
 
-This will run an MCMC for 5000 steps, and try to optimize `my_model.p` so that `my_line` matches `lref` (as a reminder, `lref` was specified when instantiating `my_model`---any`RescaleModel` should probably have its own reference line).  `chi2` is the best (minimum) chi^2, `p_best` are the corresponding parameters, and `frac_accept` is the acceptance fraction of the chain.
+This will run an MCMC for 5000 steps, and try to optimize `my_model.p` so that `my_line` matches `lref` (as a reminder, `lref` was specified when instantiating `my_model`---any `RescaleModel` object should probably have its own reference line).  `chi2` is the best (minimum) chi^2, `p_best` are the corresponding parameters, and `frac_accept` is the acceptance fraction of the chain.
 
 You then apply the model as above:
 
@@ -157,8 +162,12 @@ You then apply the model as above:
 
     chi2, p_best, frac_accept, p_chain = metro_hast(5000, my_line, my_model, keep = True)
 
-This will return the MCMC chain of parameters in `p_chain`.  `p_chain` is actually its own object (`mapspec.mapspec.Chain`), but it is little more than a glorified NxM array that knows how to plot itself (it also stores the log-likelihood for each set of parameters in a separate attribute).
+This will return the MCMC chain of parameters in `p_chain`.  `p_chain` is actually its own object (`mapspec.mapspec.Chain`), but it is little more than a glorified NxM array that knows how to plot itself (it also stores the log-likelihood for each set of parameters in a separate attribute). Also
 
+    plt.ion()
+    chi2, p_best, frac_accept, p_chain = metro_hast(5000, my_line, my_model, plot = True)
+
+will plot the MCMC chain as it runs.
 
 # Details #
 
@@ -166,19 +175,19 @@ This will return the MCMC chain of parameters in `p_chain`.  `p_chain` is actual
 
 At the moment, only linear interpolation supports a rigorous error propagation.  This includes calculating the covariance matrix due to both interpolation and smoothing when rescaling the data.
 
-Other interpolation methods are supported---any 'kind' keyword for `scipy.interpolate.interp1d` can be used.  Thereis also an implementation of bsplines using `scipy.interpolate`, and a custom built sinc interpolator (with a Lanczos window by default).
+Other interpolation methods are supported---any 'kind' keyword for `scipy.interpolate.interp1d` can be used.  There is also an implementation of bsplines using `scipy.interpolate`, and a custom built sinc interpolator (with a Lanczos window by default).
 
 These alternative methods do not support full error propagation.  For now, they will perform the same operation as called for on the flux spectrum, but on the *square* of the error spectrum (i.e., the variance).  This usually results in errors similar to the input and roughly preserves the fractional uncertainty.  However, we note that this is not strictly correct, and may be a feature that we improve in the future.
 
 ## Calculation of the Likelihood and Fitting Procedure##
 
-mapspec aligns the data and the model by minimzing: (data - model)^2/error^2, where data is the input line, model is the reference value chosen at instantization, and error^2 = (reference error)^2 + (data error)^2.  In other words, mapspec takes a maximum likelihood approach, assuming normally distributed residuals and independent uncertainties on the data and reference.
+`mapspec` aligns the data and the model by minimzing: (data - model)^2/error^2, where data is the input line, model is the reference value chosen at instantization, and error^2 = (reference error)^2 + (data error)^2.  In other words, `mapspec` takes a maximum likelihood approach, assuming normally distributed residuals and independent uncertainties on the data and reference.
 
-Because of wavelength shifts and edge-effects from convolution, there can be problems aligning the edges of the fitting region---in order to censor these points, it would be necessary to change the amount of data, and therefore the number of degrees-of-freedom, during the fit.  To prevent this while mitigating the edge-effects, mapspec ignores 10% of the data (5% on each end) when calculating the likelihood.  Although this is not an optimal solution, it does produces reasonable results and appears to be a good compromise between correctness, simplicity,  and practicability.
+Because of wavelength shifts and edge-effects from convolution, there can be problems aligning the edges of the fitting region---in order to censor these points, it would be necessary to change the amount of data, and therefore the number of degrees-of-freedom, during the fit.  To prevent this while mitigating the edge-effects, `mapspec` ignores 10% of the data (5% on each end) when calculating the likelihood.  Although this is not an optimal solution, it does produces reasonable results and appears to be a good compromise between correctness, simplicity,  and practicability.
 
 It is therefore suggested to choose the fitting region (line wavelengths) slightly larger than would naively be expected for isolating the emission line flux.  It is also suggested to remove large shifts (greater than 1 pixel) before performing the fit.  A convenience function `mapspec.mapspec.get_cc` is provided to cross correlate two spectra---see `do_map.py` for an example.
 
-In the Bayesian framework, priors are always added into the likelihood calculation.  mapspec assumes uniform priors on all parameters, so the priors do not explicitly enter into the calculation of the log-likelihood.  Note that a flat prior *is informative* for the case of the scaling parameter---however, because the rescaling is a factor of a few (not many orders of magnitude), this situation makes little difference.
+In the Bayesian framework, priors are always added into the likelihood calculation.  `mapspec` assumes uniform priors on all parameters, so the priors do not explicitly enter into the calculation of the log-likelihood.  Note that a flat prior *is informative* for the case of the scaling parameter---however, because the rescaling is a factor of a few (not many orders of magnitude), this situation makes little difference.
 
 When using a Gauss-Hermite Kernel, h3 and h4 are constrained to be > -0.3 and < 0.3; experimentation shows that this range is sufficient to produce a wide range of emission line shapes.  The finite interval is enforced by setting the prior probability to 0 outside of this interval.  Similarly, strange behavior will occur if the kernel width drops below the spectral resolution (a kind of undersampling/aliasing effect).  A minimum kernel width is imposed at 1/2 of the wavelength spacing of the reference data.
 

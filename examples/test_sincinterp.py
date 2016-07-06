@@ -5,7 +5,7 @@ import sys
 sys.path.append('..')
 #from sinc_interp import *
 #from mapspec.sinc_interp2 import SincInterp
-from mapspec.sinc_interp import SincInterp
+from sinc_interp import SincInterp
 
 x = sp.r_[-1:0.85:51j]
 dt = 0.5*(x[1] - x[0])

@@ -30,12 +30,22 @@ lref   = EmissionLine(sref,window[0],[ window[1],window[2] ] )
 speclist = sp.genfromtxt(sys.argv[4],dtype=str)
 
 #output file of parameters
-fout = open('mapspec.params','a')
+fout = open(sys.argv[5],'a')
 
-if os.path.isdir('chains') == False:
-    os.system('mkdir chains')
-if os.path.isdir('covar_matrices') == False:
-    os.system('mkdir covar_matrices')
+#write covariances?
+if sys.argv[6] == 'covar':
+    get_covar = True
+    if os.path.isdir('covar_matrices') == False:
+        os.system('mkdir covar_matrices')
+else:
+    get_covar = False
+
+if sys.argv[7] == 'chains':
+    get_chains = True
+    if os.path.isdir('chains') == False:
+        os.system('mkdir chains')
+    else:
+        get_chains = False
 
 #plt.ion()
 for spec in speclist:
@@ -75,8 +85,11 @@ for spec in speclist:
 
     sout,dummy,covar = f.output(s)
     sp.savetxt('scale_'+spec,sp.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
-    sp.savetxt('covar_matrices/covar_'+spec,covar)
-    chain_gauss.save('chains/'+spec+'.chain.gauss')
+
+    if get_covar:
+        sp.savetxt('covar_matrices/covar_'+spec,covar)
+    if get_chains:
+        chain_gauss.save('chains/'+spec+'.chain.gauss')
 
     
     f    = RescaleModel(lref,kernel="Hermite")
@@ -118,8 +131,10 @@ for spec in speclist:
         )
     fout.flush()
     sp.savetxt('scale.h._'+spec,sp.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
-    sp.savetxt('covar_matrices/covar.h._'+spec,covar)
-    chain_herm.save('chains/'+spec+'.chain.herm')
+    if get_covar:
+        sp.savetxt('covar_matrices/covar.h._'+spec,covar)
+    if get_chains:
+        chain_herm.save('chains/'+spec+'.chain.herm')
 
 
         

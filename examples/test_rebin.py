@@ -7,7 +7,7 @@ sys.path.append('..')
 from pyraf import iraf
 from iraf import onedspec
 
-from mapspec.spectrum import *
+from spectrum import *
 
 """
 This compares rebinned spectra using iraf (dispcor) and

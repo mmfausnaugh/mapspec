@@ -4,7 +4,7 @@ import sys
 
 sys.path.append('..')
 
-from mapspec.spectrum import TextSpec,TextSpec_2c,EmissionLine,LineModel
+from spectrum import TextSpec,TextSpec_2c,EmissionLine,LineModel
 """
 Examples for how to use the line fitting functionality, and to test
 the install of spectrum.py.
