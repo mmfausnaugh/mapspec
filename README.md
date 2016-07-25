@@ -29,7 +29,9 @@ These mostly deal with data structures in `spectrum.py`; to test the rescaling p
 
 # Quick Start #
 
-If you want to get right into it, the shell script `run_map.sh` gives a basic command for aligning spectra.  Comments inside the file parse all arguments of this command, but for completeness, here are the data files that you need:
+If you want to get right into it, the shell script `run_map.sh` gives a basic command for aligning spectra.  However, if you are wary of black boxes, skip to the 'Outline' (below).
+
+Comments inside `run_map.sh` parse all arguments of this command, but for completeness, here are the data files that you need:
 
 * A reference spectrum in 3 column ascii format (wavelength, flux, and flux error)
 * A file with wavelength regions for the emission line to fit.  This should be 3 lines: 1)  the wavelength window of the emission line, 2) the wavelength window of the blueward continuum, and 3) the wavelength window of the redward continuum.  Each line has 2 numbers: the blue edge of the wavelength window and the red edge of the wavelength window
@@ -37,9 +39,8 @@ If you want to get right into it, the shell script `run_map.sh` gives a basic co
 
 Examples of all of these files are in `examples/mapspec_test`.
 
-The actual work is done by a `python` script called `do_map.py`.  This runs 3 different models:  delta-function smoothing, Gaussian smoothing, and Gauss-Hermite smoothing.  The best-fit parameters of all models are saved to a file (with the corresponding chi^2).  If the delta-function smoothing is a better fit than the Gaussian or Gauss-Hermite smoothing, the delta-function is used for the rescaled spectrum.  Rescaled spectra are saved in files name 'scale_input_spec_name' (Gaussian smoothing) and 'scale.h._input_spec_name' (Gauss-Hermite smoothing). The MCMC chains are also saved by default, in their own directory.
+The actual work is done by a `python` script called `do_map.py`.  It is recommended that you learn how `do_map.py` works---the script may not be perfect for your requirements, and the hope is that you use the `mapspec` data structures to implement any complexity that you might need.  `do_map.py` is one example of such an application, i.e., running a list of spectra through the rescaling model.  This is the normal _modus operandi_ for reverberation mapping studies, so `do_map.py` might be adequate for most users.  However, note that `do_map.py` does some simple model comparisons, so it is worth looking at the output parameters (`mapspec.params`) and comparing different rescaling procedures (outputs are saved in 'scale_input_spectrum_name' and 'scale.h._input_spectrum_name').
 
-It is highly recommended that you learn how `do_map.py` works---the script may not be perfect for your requirements, and the hope is that you use the `mapspec` data structures to implement any complexity that you might need.  `do_map.py` is one example of such an application, i.e., running a list of spectra through the rescaling model.  This is the normal _modus operandi_ for reverberation mapping studies, so `do_map.py` might be adequate for most users.  However, as is well known, black boxes are potentially dangerous things.
 
 * * *
 
