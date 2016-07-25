@@ -420,6 +420,7 @@ class Chain(object):
                     if self.index[k1] != 0:
                         ax.set_xticklabels([])
                         ax.tick_params(labelright=True)
+                        ax.set_yticklabels([])
                     else:
                         ax.set_xlabel(k2)
 

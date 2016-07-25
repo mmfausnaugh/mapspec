@@ -48,7 +48,7 @@ for spec in speclist:
     s = TextSpec(spec)
     shift0 = get_cc(s.f,sref.f,s.wv,sref.wv)
 
-#    s.wv += shift0
+#    s.wv -= shift0
 #    print shift0
     l = EmissionLine(s,window[0],[window[1],window[2]])
     lmodel = LineModel(l,func='gaussian')
@@ -135,7 +135,7 @@ fout = open('ref_resolution.dat','w')
 fout.write('Ref native resolution:    % 2.4f\n'%res)
 fout.write('Cut for worst resolution: % 2.4f\n'%cut)
 fout.write('Worst object  below cut:  % 2.4f\n'%dispdist[m].max())
-fout.write('Kernel width:             % 2.4f\n'%newres)
+fout.write('Kernel width:             % 2.4f\n'%newres*2.35)
 fout.write('New ref resolution:       % 2.4f\n'%res2)
 fout.close()
 

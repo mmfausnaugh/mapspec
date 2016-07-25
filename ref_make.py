@@ -1,7 +1,7 @@
 import scipy as sp
 from scipy.signal import correlate
 import matplotlib.pyplot as plt
-from mapspec.spectrum import Spectrum,EmissionLine,TextSpec
+from spectrum import Spectrum,EmissionLine,TextSpec
 """
 This is for making a reference image.  you provide a file with a list
 of photometric nights, the program will align the spectra to a common
