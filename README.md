@@ -20,7 +20,6 @@ Note that the code is in python 2.7---updating to python 3 is the first item on 
 To test the installation, go to `examples` and try running the test scripts:
 
     python test_sincinterp.py
-    python test_rebin.py   #this requires pyraf and iraf---will compare mapspec rebin with dispcor
     python test_linefit.py
 
 These mostly deal with data structures in `spectrum.py`; to test the rescaling procedure itself, go to `mapspec_test` and run
