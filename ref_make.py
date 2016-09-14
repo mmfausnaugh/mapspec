@@ -98,7 +98,7 @@ reflist = sp.genfromtxt('reflist',dtype='a')
 S,L = [],[]
 for ref in reflist:
     s = TextSpec(ref)
-    s.set_interp(style='bspline')
+    s.set_interp(style='linear')
     S.append(s)
     plt.plot(s.wv,s.f,'k')
 

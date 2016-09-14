@@ -135,7 +135,7 @@ fout = open('ref_resolution.dat','w')
 fout.write('Ref native resolution:    % 2.4f\n'%res)
 fout.write('Cut for worst resolution: % 2.4f\n'%cut)
 fout.write('Worst object  below cut:  % 2.4f\n'%dispdist[m].max())
-fout.write('Kernel width:             % 2.4f\n'%newres*2.35)
+fout.write('Kernel width:             % 2.4f\n'%(newres*float(2.35)) )
 fout.write('New ref resolution:       % 2.4f\n'%res2)
 fout.close()
 

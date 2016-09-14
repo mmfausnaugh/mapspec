@@ -265,7 +265,6 @@ class Spectrum(object):
         kw = round(dpix*10)
         if kw%2 == 0:
             kw += 1
-            print dpix, kw
         W = get_window(('gaussian', dpix),kw)
         W /= abs(sp.sum(W))
 
@@ -432,7 +431,6 @@ class EmissionLine(Spectrum):
         bmax_i = sp.where( self.f == bmax)[0]
         rmax   = self.f[rmask].max()
         rmax_i = sp.where( self.f == rmax)[0]
-
 
         wvmask = (self.wv > self.wv[bmax_i] )*(self.wv < self.wv[rmax_i] )
         if (self.f[wvmask].size > 0 ) and ( self.f[wvmask] < min(bmax, rmax)  ).any():
