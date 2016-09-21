@@ -450,12 +450,21 @@ class EmissionLine(Spectrum):
         ftarget = 0.5*bmax
         for i in range(bmax_i):
             if self.f[i] > ftarget:
-                slope = ( self.wv[i] - self.wv[i - 1] )/( self.f[i] - self.f[i - 1] )
-                b1 = self.wv[i - 1] + slope*(ftarget - self.f[i - 1])
-                break
+                if i == 0:
+                    print 'Warning: edge of the blue wing > 0.5*blue_max'
+                    b1 = self.wv[0]
+                    break
+                else:
+                    slope = ( self.wv[i] - self.wv[i - 1] )/( self.f[i] - self.f[i - 1] )
+                    b1 = self.wv[i - 1] + slope*(ftarget - self.f[i - 1])
+                    break
 
         for i in range(bmax_i):
             j = bmax_i - i
+            if j == 0:
+                print 'Warning: hit edge of the blue wing'
+                b2 = self.wv[0]
+                break
             if self.f[j] < ftarget:
                 slope = ( self.wv[j] - self.wv[j + 1] )/( self.f[j] - self.f[j + 1] )
                 b2 = self.wv[j + 1] + slope*(ftarget - self.f[j + 1])
@@ -468,19 +477,33 @@ class EmissionLine(Spectrum):
         for i in range(self.wv.size - 1 - rmax_i):
             j = self.wv.size - 1 - i
             if self.f[j] > ftarget:
-                slope = ( self.wv[j] - self.wv[j + 1] )/( self.f[j] - self.f[j + 1] )
-                r1 = self.wv[j + 1] + slope*(ftarget - self.f[j + 1])
-                break
+                if j == self.wv.size-1:
+                    print 'Warning: edge of the red wing > 0.5*red_max'
+                    r1 = self.wv[-1]
+                    break
+                else:
+                    slope = ( self.wv[j] - self.wv[j + 1] )/( self.f[j] - self.f[j + 1] )
+                    r1 = self.wv[j + 1] + slope*(ftarget - self.f[j + 1])
+                    break
 
         for i in range(self.wv.size - 1 - rmax_i):
             j = rmax_i + i
+            if j == self.wv.size:
+                print 'warning---hit the edge of the red wing'
+                r2 = self.wv[-1]
+                break
             if self.f[j] < ftarget:
                 slope = ( self.wv[j] - self.wv[j - 1] )/( self.f[j] - self.f[j - 1] )
                 r2 = self.wv[j - 1] + slope*(ftarget - self.f[j - 1])
                 break
 
         fwhm_red = (r1 + r2)/2.
-        return ( (fwhm_red - fwhm_blue)[0], (fwhm_blue - center)[0], (fwhm_red - center)[0], doublepeaked)
+
+        outdic = {'blue':(fwhm_blue - center)[0],
+                  'red'  :(fwhm_red - center)[0],
+                  'doublepeaked':doublepeaked
+                      }
+        return ( (fwhm_red - fwhm_blue)[0], outdic)
 
     def ip_wv(self,frac):
         """

@@ -5,34 +5,62 @@ import scipy as sp
 import matplotlib.pyplot as plt
 from spectrum import *
 from mapspec import *
-from matplotlib.ticker import MultipleLocator
 import sys
 
 
 """
-This will calculate the resolution of a list of spectra and show the
-distribution, in order to decide how much to smooth the reference.
+This code will calculate the resolution of a list of spectra and show
+the distribution, in order to decide how much to smooth a reference
+spectrum to match some target value.
 
-Resolution comes from FWHM of Gaussian fits to line profile (assume
-[OIII]lambda 5007).
+Resolution is measured by the FWHM of Gaussian fits to the line
+profile.
 
-Will do some basic sanity checks to make sure you believe the fits,
-and let's you interactively choose how much to smooth the reference.
+'sref' is the spectrum you want to smooth, read in from a file
+'ref.txt'.
+
+'speclist_use' is the list of spectra to compare.  The code loops
+through these, gets the FWHM of a user-specified emission line, and
+shows the distribution of FWHMs.  
+
+The user then enters a number, above which all FWHM values are
+cut-----it is assumed these are outliers (no problem to set the cut
+above the highest FWHM in the distribution).
+
+The highest FWHM below the cut value is now the 'target'
+
+Finally, the code will smooth 'sref' by a Gaussian kernel.  The width
+of the kernel is:
+
+kernel.FWHM**2 = target.FWHM**2 - sref.FWHM**2
+
+The user must enter a file designating the window from which to
+extract the emission line.  This follows the usual format, i.e., 3
+lines specifying:
+
+line_blue_edge     line_red_edge
+bluecont_blue_edge bluecont_red_edge
+redcont_blue_edge  redcont_red_edge
+
+The code also does some basic sanity checks to make sure you believe
+the fits, and let's you interactively specify how much to smooth
+'sref', if you prefer.
 """
 
 if len(sys.argv) == 1:
-    raise ValueError('need to enter redshift for FWHM calculation')
+    raise ValueError('Need to enter the file with the emission line window')
     
 
 #list of spectra
 speclist = sp.genfromtxt('speclist_use',dtype=str)
-#line used to calculate resolution ([OIII]lambda 5007, again
-window   = sp.genfromtxt('oiii.window')
+#line used to calculate resolution
+window   = sp.genfromtxt(sys.argv[1])
 
 #reference
 sref = TextSpec('ref.txt',style='linear')
 
 lref = EmissionLine(sref,window[0],[window[1],window[2]])
+lcenter = lref.wv_mean()
 
 #model as a Gaussian, so that everything is measured in the same way
 lmodelref = LineModel(lref,func='gaussian')
@@ -46,8 +74,8 @@ plt.ion()
 print 'name         FWHM, FWHM fit'
 for spec in speclist:
     s = TextSpec(spec)
-    shift0 = get_cc(s.f,sref.f,s.wv,sref.wv)
 
+#    shift0 = get_cc(s.f,sref.f,s.wv,sref.wv)
 #    s.wv -= shift0
 #    print shift0
     l = EmissionLine(s,window[0],[window[1],window[2]])
@@ -59,19 +87,11 @@ for spec in speclist:
     dispdist.append(lmodel.p[2])
     centdist.append(lmodel.p[1])
 
-    fwhm,dum1,dum2,dum3 = l.fwhm( (1. + float(sys.argv[1]))*5007.)
+    fwhm,dum1 = l.fwhm(lcenter)
     print spec, fwhm,lmodel.p[2]*2.35
 
 
-#worth checking if there are large wavelength shifts (where is the
-#center of the fit?).  If so, consider uncommenting line 36
-plt.hist(centdist)
-plt.gca().set_title('Distribution of line centers')
-plt.draw()
-print 'Check that the center of the fits are close enough together that you trust the inferred line widths'
-raw_input('Press enter to continue')
 
-plt.clf()
 #convert sigma to FWHM
 res = lmodelref.p[2]*2.35
 print 'parameters of referenc fit: (scale, center, width):',lmodelref.p
@@ -82,10 +102,22 @@ plt.plot(lref.wv,lmodelref(lref.wv),'bo-',label='model')
 plt.legend(loc='upper left',frameon=0)
 plt.gca().set_title('Reference line profile')
 plt.draw()
-print 'Check that you believe the fit the reference line profile--should only be good enough'
+print 'Check that you believe the fit the reference line profile--need only be approximate'
 raw_input('Press enter to continue')
 
 plt.clf()
+
+#worth checking if there are large wavelength shifts (where is the
+#center of the fit?).
+plt.hist(centdist)
+plt.gca().set_title('Distribution of line centers')
+plt.draw()
+print 'Check that the center of the fits are close enough together that you trust the inferred line widths'
+raw_input('Press enter to continue')
+
+
+plt.clf()
+
 dispdist = sp.array(dispdist)*2.35
 plt.hist(dispdist)
 l,u = plt.gca().get_ylim()
@@ -95,18 +127,32 @@ plt.gca().set_title('Line Model FWHM')
 plt.draw()
 
 print 'red line shows native reference resolution:',res
-cut = float(raw_input('Where to cut resolution distribution? (type "man" to enter smoothing width by hand)'))
+
+newres = None
+cut = raw_input('Where to cut resolution distribution? (type "m" for "manual" to enter smoothing width by hand)\n')
+if 'm' in cut:
+    #assumes the user will put in a FWHM
+    newres = float(raw_input('Enter smoothing width\n'))/2.35
+else:
+    cut = float(cut)
 
 plt.clf()
 
 #smoothing width to get to max resolution below the cut
-m = dispdist < cut
-newres = sp.sqrt(dispdist[m].max()**2 - res**2 )/2.35
-print 'max resolution above the cut:', dispdist[m].max()
-print 'smoothing width (pixels):',newres*2.35, '('+str(2.35*newres/(s.wv[1] - s.wv[0]))+')'
+if newres == None:
+    print 'dadada'
+    m = dispdist < cut
+    while len(dispdist[m]) == 0:
+        cut = float(raw_input( 'Try a different cut (cut is below the lowest FWHM)\n'))/2.35
+        m = dispdist < cut
+
+    newres = sp.sqrt(dispdist[m].max()**2 - res**2 )/2.35
+    print 'max resolution below the cut:', dispdist[m].max()
+    print 'smoothing width (pixels):',newres*2.35, '('+str(2.35*newres/(s.wv[1] - s.wv[0]))+')'
 
 #do the smoothing
-sref.smooth(13,name = ('gaussian', newres/(s.wv[1] - s.wv[0]) ) )
+newres_pix =  newres/(s.wv[1] - s.wv[0])
+sref.smooth(10.*newres_pix, name = ('gaussian', newres_pix) )
 lref = EmissionLine(sref,window[0],[window[1],window[2]])
 lmodel = LineModel(lref,func='gaussian')
 res2 = lmodel.p[2]*2.35
