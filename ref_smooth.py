@@ -17,9 +17,9 @@ Resolution is measured by the FWHM of Gaussian fits to the line
 profile.
 
 'sref' is the spectrum you want to smooth, read in from a file
-'ref.txt'.
+'infile.txt'.
 
-'speclist_use' is the list of spectra to compare.  The code loops
+'speclist' is the list of spectra to compare.  The code loops
 through these, gets the FWHM of a user-specified emission line, and
 shows the distribution of FWHMs.  
 
@@ -48,16 +48,21 @@ the fits, and let's you interactively specify how much to smooth
 """
 
 if len(sys.argv) == 1:
-    raise ValueError('Need to enter the file with the emission line window')
-    
-
-#list of spectra
-speclist = sp.genfromtxt('speclist_use',dtype=str)
-#line used to calculate resolution
-window   = sp.genfromtxt(sys.argv[1])
+    print 'Usage:'
+    print 'python  ref_smooth.py   infile.txt  speclist   window outfile.txt'
+    print 'infile.txt---  input spectrum to smooth (usually the reference for alignment)'
+    print 'speclist--  1 col ascii file with list of files to compare---determines target resolution'
+    print 'window---  window file designating wavelengths for the EmissionLine'
+    print 'outfile.txt---  output spectrum, after smoothing'
+    exit
 
 #reference
-sref = TextSpec('ref.txt',style='linear')
+sref = TextSpec(sys.argv[1],style='linear')
+#list of spectra
+speclist = sp.genfromtxt(sys.argv[2],dtype=str)
+#line used to calculate resolution
+window   = sp.genfromtxt(sys.argv[3])
+
 
 lref = EmissionLine(sref,window[0],[window[1],window[2]])
 lcenter = lref.wv_mean()
@@ -173,7 +178,7 @@ raw_input('Press enter to to save reference, else Ctr+C to quit')
 
 
 
-sp.savetxt('ref.smooth.txt',sp.c_[sp.real(sref.wv),sp.real(sref.f),sp.real(sref.ef)])
+sp.savetxt(sys.argv[4],sp.c_[sp.real(sref.wv),sp.real(sref.f),sp.real(sref.ef)])
 
 #print 'errors after here'
 #print res,cut,dispdist[m].max(),newres,res2

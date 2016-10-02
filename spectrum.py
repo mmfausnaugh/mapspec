@@ -831,10 +831,10 @@ class TextSpec(Spectrum):
     change the interpolation method (linear, sinc, bsplines, etc.)
     here.
     """
-    def __init__(self,ifile,style='linear'):
+    def __init__(self,ifile,style='linear',delimiter=None):
         super(TextSpec,self).__init__()  
         self.style=style
-        x,y,z = sp.genfromtxt(ifile,unpack=1,usecols = (0,1,2))
+        x,y,z = sp.genfromtxt(ifile,unpack=1,usecols = (0,1,2), delimiter=None)
         self.wv = x
         self.f  = y
         self.ef = z
@@ -843,6 +843,8 @@ class TextSpec(Spectrum):
         self.f_orig  = deepcopy(self.f)
         self.ef_orig = deepcopy(self.ef)
 #            self.sky_orig= deepcopy(self.sky)
+    def save(self,ofile):
+        sp.savetxt(ofile, sp.c_[self.wv,self.f,self.ef])
 
 
 class TextSpec_2c(Spectrum):
@@ -851,10 +853,10 @@ class TextSpec_2c(Spectrum):
     is set to a dummy array of ones.
     """
 
-    def __init__(self,ifile,style='linear'):
+    def __init__(self,ifile,style='linear',delimiter=None):
         super(TextSpec_2c,self).__init__()  
         self.style=style
-        x,y = sp.genfromtxt(ifile,unpack=1,usecols = (0,1))
+        x,y = sp.genfromtxt(ifile,unpack=1,usecols = (0,1),delimiter=None)
         self.wv = x
         self.f  = y
 #            self.ef = sp.ones(y.size)
@@ -863,10 +865,14 @@ class TextSpec_2c(Spectrum):
         self.f_orig  = deepcopy(self.f)
         self.ef_orig = deepcopy(self.ef)
 
+    def save(self,ofile):
+        sp.savetxt(ofile, sp.c_[self.wv,self.f])
+
 class FitsSpec(Spectrum):
     """    
     A user level class, which will in intialize a Spectrum object from
-    a fits file.  Uses astropy to read thing in.
+    a fits file.  Fits file is assumed to be a mutli-extension 1D
+    array.  Uses astropy to read thing in.
 
     One should look in the fits header for how to define the
     wavelengths.  The python kewords give:
@@ -901,6 +907,27 @@ class FitsSpec(Spectrum):
         xhigh = (n - p1 + 1)*dx + x1
         xlow  =  x1 - dx*(p1 - 1)
         return sp.r_[xlow:xhigh:dx]
+
+    def save(self,ofile,head=None, x1key ='CRVAL1', dxkey='CD1_1', p1key='CRPIX1'):
+
+        data = sp.array([
+                [self.f],
+                [self.ef]
+                ])
+    
+        if head == None:
+            fits.writeto(ofile,data,clobber=True)
+
+        else:
+            head[x1key] = self.wv[0]
+            #assume even spacing......
+            head[dxkey] = (self.wv[1] - self.wv[0])
+            head[p1key] = 1
+
+            head['COMMENT'] = 'Modified by mapspec on %s'%(time.strftime("%c"))
+
+            fits.writeto(ofile,data,header=head,clobber=True)
+
 
 
 def linfit(x,y,ey):
