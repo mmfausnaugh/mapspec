@@ -1,6 +1,6 @@
 # mapspec #
 
-`mapspec` stands for **M**cmc **A**lgorithm for **P**arameters of **SPEC**tra.  It was originally designed to rescale astronomical spectra to a standard flux scale, using a method similar to that of [van Groningen & Wanders 1992](http://adsabs.harvard.edu/abs/1992PASP..104..700V).  Along the way, several spectra analysis tools useful for dealing with bright/broad emission lines have been implemented.
+`mapspec` stands for **M**cmc **A**lgorithm for **P**arameters of **SPEC**tra.  It was originally designed to rescale astronomical spectra to a standard flux scale, using a method similar to that of [van Groningen & Wanders 1992](http://adsabs.harvard.edu/abs/1992PASP..104..700V).  Full details of the method are in [Fausnaugh 2016](https://arxiv.org/abs/1609.04014), accepted for publication in PASP (please cite this paper if you use the code).  Along the way, several spectra analysis tools useful for dealing with bright/broad emission lines have been implemented.
 
 * * *
 
