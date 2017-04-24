@@ -21,7 +21,6 @@ __all__ = ['linear_interp_error','extinction','Spectrum','EmissionLine','LineMod
 
 
 
-
 class Spectrum(object):
     """
     A Spectrum class.
@@ -105,7 +104,7 @@ class Spectrum(object):
         """
         if self.ef is not None:
             zout = self._interpolator_error(xnew)
-            if (zout == -1).any():
+            if (zout <= 0).any():
                 print 'Warning:  some variances are negative, flagged with complex errors'
             return self._interpolator(xnew),sp.sqrt(zout)
         else:
@@ -443,12 +442,12 @@ class EmissionLine(Spectrum):
                 bmax = rmax
                 bmax_i = rmax_i
             else:
-                rmax = bmax
+                rmax = bmax 
                 rmax_i = bmax_i
 
         #blue side
         ftarget = 0.5*bmax
-        for i in range(bmax_i):
+        for i in range(bmax_i + 1):
             if self.f[i] > ftarget:
                 if i == 0:
                     print 'Warning: edge of the blue wing > 0.5*blue_max'
@@ -459,11 +458,11 @@ class EmissionLine(Spectrum):
                     b1 = self.wv[i - 1] + slope*(ftarget - self.f[i - 1])
                     break
 
-        for i in range(bmax_i):
+        for i in range(bmax_i + 1):
             j = bmax_i - i
             if j == 0:
                 print 'Warning: hit edge of the blue wing'
-                b2 = self.wv[0]
+                b2 = [self.wv[0]]
                 break
             if self.f[j] < ftarget:
                 slope = ( self.wv[j] - self.wv[j + 1] )/( self.f[j] - self.f[j + 1] )
@@ -474,10 +473,10 @@ class EmissionLine(Spectrum):
 
         #red side
         ftarget = 0.5*rmax
-        for i in range(self.wv.size - 1 - rmax_i):
+        for i in range(self.wv.size  - rmax_i):
             j = self.wv.size - 1 - i
             if self.f[j] > ftarget:
-                if j == self.wv.size-1:
+                if j == self.wv.size - 1:
                     print 'Warning: edge of the red wing > 0.5*red_max'
                     r1 = self.wv[-1]
                     break
@@ -486,11 +485,11 @@ class EmissionLine(Spectrum):
                     r1 = self.wv[j + 1] + slope*(ftarget - self.f[j + 1])
                     break
 
-        for i in range(self.wv.size - 1 - rmax_i):
+        for i in range(self.wv.size  - rmax_i):
             j = rmax_i + i
-            if j == self.wv.size:
-                print 'warning---hit the edge of the red wing'
-                r2 = self.wv[-1]
+            if j == self.wv.size - 1:
+                print 'Warning: hit the edge of the red wing'
+                r2 = [self.wv[-1]]
                 break
             if self.f[j] < ftarget:
                 slope = ( self.wv[j] - self.wv[j - 1] )/( self.f[j] - self.f[j - 1] )
@@ -575,15 +574,15 @@ class LineModel(EmissionLine):
             y = EmLine.f
             z = EmLine.ef
 
-        self.fuse,pinit = self._init_params(func,x,y,nline,linedata)
+#        self.fuse,pinit = self._init_params(func,x,y,nline,linedata)
         #all the heavy lifting is in this step
-        self.p,self.covar = fitfunc(self.fuse,pinit,x,y,z)
 
-#        self.fuse,pinit,pbounds = self._init_params(func,x,y,nline,linedata)
+        self.fuse,pinit,pbounds = self._init_params(func,x,y,nline,linedata)
 #        print pbounds,pinit
         #all the heavy lifting is in this step
 #        print pbounds
 #        print pinit
+        self.p,self.covar = fitfunc(self.fuse,pinit,x,y,z)
 #        self.p,dummy = fitfunc_bound(self.fuse,sp.array(pinit),x,y,z,pbounds)
 #        print self.p
 
@@ -683,17 +682,17 @@ class LineModel(EmissionLine):
 
 #make sure there are no negative fluxes
 #but can't get scipy constraint/bound system to work....        
-#        pbound = []
-#        for i in range(len(pinit)):
-#            #all the scales are above 0
-#            if i%nparams[func] == 0:
-#                pbound.append( (0,None) )
-#            else:
-#                pbound.append( (None,None))
+        pbound = []
+        for i in range(len(pinit)):
+            #all the scales are above 0
+            if i%nparams[func] == 0:
+                pbound.append( (0,None) )
+            else:
+                pbound.append( (None,None))
 
         
-#        return fuse,pinit,tuple(pbound)
-        return fuse,pinit
+        return fuse,pinit,tuple(pbound)
+#        return fuse,pinit
 
  
     def __call__(self,x):
@@ -945,6 +944,7 @@ def linfit(x,y,ey):
             [sp.sum(1./ey/ey), sp.sum(x/ey/ey)],
             [sp.sum(x/ey/ey),  sp.sum(x*x/ey/ey)]
             ] )
+
     p     = linalg.solve(A,C)
     covar = linalg.inv(A)
     return p,covar
@@ -977,25 +977,27 @@ def fitfunc_bound(func,pin,x,y,ey,pbound):
         ( y - func(x,params) )**2/ey**2 
         )
     #return with weird object....
-    out,dum1,dum2 = optimize.fmin_l_bfgs_b(merit,
-                                           pin,
-                                           args=(func,x,y,ey),
-                                           #                                 tol = 1.e-15,
-                                           #                            method='L-BFGS-B',
-                                           bounds = pbound,
-                                           approx_grad=True,
-                                           epsilon=1.e-6,
-#                                           pgtol
-                                           #                                 options={'disp':True}
-                                           )
-#    out = optimize.minimize(merit,pin,args=(func,x,y,ey),tol = 1.e-8,method='SLSQP',constraints = pbound)
-#    print 'success:',out.success
+#########    out,dum1,dum2 = optimize.fmin_l_bfgs_b(merit,
+#########                                           pin,
+#########                                           args=(func,x,y,ey),
+#########                                           #                                 tol = 1.e-15,
+#########                                           #                            method='L-BFGS-B',
+#########                                           bounds = pbound,
+#########                                           approx_grad=True,
+#########                                           epsilon=1.e-15,
+##########                                           pgtol
+#########                                           #                                 options={'disp':True}
+#########                                           )
+    print pbound
+    out = optimize.minimize(merit,pin,args=(func,x,y,ey),method='TNC',bounds = pbound,options={'disp':True,'maxiter':10000})
+    print 'success:',out.success
 #    print out.message
 #    errors = sp.sqrt(ey**2 * out.jac**2)
 #    print out.keys()
 #    print 'iterations:',out.nit,out.nfev#, out.njev, out.nhev
-    print 'WARNING!!!',dum2['warnflag'],dum2['task']
-    return out
+#    print 'WARNING!!!',dum2['warnflag'],dum2['task']
+#    print out.x
+    return out.x,out.jac
 
 def linear_interp_error(x,xinterp,z):
     """

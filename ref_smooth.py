@@ -1,5 +1,5 @@
-import matplotlib
-matplotlib.use('TkAgg') 
+##import matplotlib
+##matplotlib.use('TkAgg') 
 
 import scipy as sp
 import matplotlib.pyplot as plt
@@ -54,7 +54,7 @@ if len(sys.argv) == 1:
     print 'speclist--  1 col ascii file with list of files to compare---determines target resolution'
     print 'window---  window file designating wavelengths for the EmissionLine'
     print 'outfile.txt---  output spectrum, after smoothing'
-    exit
+    sys.exit()
 
 #reference
 sref = TextSpec(sys.argv[1],style='linear')
@@ -62,7 +62,7 @@ sref = TextSpec(sys.argv[1],style='linear')
 speclist = sp.genfromtxt(sys.argv[2],dtype=str)
 #line used to calculate resolution
 window   = sp.genfromtxt(sys.argv[3])
-
+print window
 
 lref = EmissionLine(sref,window[0],[window[1],window[2]])
 lcenter = lref.wv_mean()
@@ -145,7 +145,7 @@ plt.clf()
 
 #smoothing width to get to max resolution below the cut
 if newres == None:
-    print 'dadada'
+##    print 'dadada'
     m = dispdist < cut
     while len(dispdist[m]) == 0:
         cut = float(raw_input( 'Try a different cut (cut is below the lowest FWHM)\n'))/2.35
@@ -184,8 +184,13 @@ sp.savetxt(sys.argv[4],sp.c_[sp.real(sref.wv),sp.real(sref.f),sp.real(sref.ef)])
 #print res,cut,dispdist[m].max(),newres,res2
 fout = open('ref_resolution.dat','w')
 fout.write('Ref native resolution:    % 2.4f\n'%res)
-fout.write('Cut for worst resolution: % 2.4f\n'%cut)
-fout.write('Worst object  below cut:  % 2.4f\n'%dispdist[m].max())
+if 'm' in str(cut):
+    fout.write('Cut for worst resolution: % manual\n')
+    fout.write('Worst object  below cut:  % none\n')
+else:
+    fout.write('Cut for worst resolution: % 2.4f\n'%cut)
+    fout.write('Worst object  below cut:  % 2.4f\n'%dispdist[m].max())
+
 fout.write('Kernel width:             % 2.4f\n'%(newres*float(2.35)) )
 fout.write('New ref resolution:       % 2.4f\n'%res2)
 fout.close()

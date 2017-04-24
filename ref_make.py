@@ -34,10 +34,11 @@ redcont_blue_edge  redcont_red_edge
 
 def get_chi2(s1,s2,shift):
     trim = int(abs(shift/(s1.wv[1] - s1.wv[0]))) + 1
-#    print trim, s2.wv.size,shift
     if trim == 0: trim = 1
     xnew = s2.wv[trim : -trim] - shift
     #resample the reference at the new wavelength grid
+
+
     y1,z1 = s1.interp(xnew)
 
     return sp.sum( 
@@ -54,6 +55,7 @@ def get_cc(y1,y2,x):
 def tidy(xout,yout,zout):
     xmin = xout[0]
     for x in xout:
+        print x.size, x[0]
         if x.size < xmin.size:
             xmin = deepcopy(x)
 
@@ -65,7 +67,7 @@ def tidy(xout,yout,zout):
         zout[i] = zout[i][j]
 
     print sp.shape(xout),sp.shape(yout),sp.shape(zout)
-    print yout
+#    print yout
     yout  = sp.array(yout)
     zout = sp.array(zout)
     ymean = sp.sum( yout/zout**2,axis = 0 )/sp.sum(1./zout**2, axis = 0)
@@ -78,6 +80,8 @@ def tidy(xout,yout,zout):
 
 def HM(ntrial,s1,s2,p):
 
+    deltawv = s1.wv[1] - s1.wv[2]
+
     chi2 = get_chi2(s1,s2,p)
     chi2best = 1.e12
 
@@ -87,7 +91,7 @@ def HM(ntrial,s1,s2,p):
 
     for i in range(ntrial):
 
-        ptry = p + sp.randn()*0.1
+        ptry = p + sp.randn()*0.1*deltawv
  
         chi2try = get_chi2(s1,s2,ptry)
 
@@ -121,7 +125,7 @@ if len(sys.argv) == 1:
     print 'speclist--      1 col ascii file with list of files to combine'
     print 'window---       window file designating wavelengths for the EmissionLine'
     print 'outfile.txt---  output spectrum, after smoothing'
-    exit
+    sys.exit()
 
 #list of spectra for the reference
 reflist = sp.genfromtxt(sys.argv[1],dtype='a')
@@ -133,11 +137,10 @@ S,L = [],[]
 for ref in reflist:
     s = TextSpec(ref)
     s.set_interp(style='linear')
-    m= (s.wv > 4500)*(s.wv <7500)
-    s.wv = s.wv[m]
-    s.f  = s.f[m]
-    s.ef = s.ef[m]
-
+#    m= (s.wv > 4432)*(s.wv <7500)
+#    s.wv = s.wv[m]
+#    s.f  = s.f[m]
+#    s.ef = s.ef[m]
 
     S.append(s)
 
@@ -177,12 +180,10 @@ for s in S[1::]:
     trim = int(abs(shiftuse/(s.wv[1] - s.wv[0]))) + 1
 #    if trim > trimmax: trimmax = trim
 #    print 'trim',trimmax
-    
     y1,z1 = s.interp(S[0].wv[trim:-trim])
-
-    plt.plot(S[0].wv[trim:-trim],y1,'k')
-    plt.plot(S[0].wv[trim:-trim],z1,'r')
-    plt.show()
+#    plt.plot(S[0].wv[trim:-trim],y1,'k')
+#    plt.plot(S[0].wv[trim:-trim],z1,'r')
+#    plt.show()
 
     xout.append(S[0].wv[trim:-trim])
     yout.append(y1)
