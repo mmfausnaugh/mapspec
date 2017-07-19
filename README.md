@@ -4,9 +4,13 @@
 
 * * *
 
-# Installation and Dependencies#
+# Installation and Dependencies #
 
-`mapspec` is a fairly simple python package---just download it (best to use `git clone`) and put it in your python installation, your PYTHONPATH, or working directory.
+`mapspec` is a fairly simple python package. Just download it (best to use `git clone`), move to the directory, and do
+
+`python setup.py install`
+
+Alternatively, the main functionality is in the `mapspec` subdirectory:  put it in your PYTHONPATH or working directory, and you can import all of the useful objects.
 
 You will also need the following python packages installed:
 
@@ -15,7 +19,7 @@ You will also need the following python packages installed:
 * matplotlib (for using built-in plotting functions)
 * astropy (for reading and writting fits files)
 
-Note that the code is in python 2.7---updating to python 3 is the first item on the to-do list.
+Now compatible with python 3.
 
 To test the installation, go to `examples` and try running the test scripts:
 
