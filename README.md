@@ -6,7 +6,11 @@
 
 # Installation and Dependencies#
 
-`mapspec` is a fairly simple python package---just download it (best to use `git clone`) and put it in your python installation, your PYTHONPATH, or working directory.
+mapspec is a fairly simple python package. Just download it (best to use git clone), move to the directory, and do
+
+python setup.py install
+
+Alternatively, the main functionality is in the mapspec subdirectory: put it in your PYTHONPATH or working directory, and you can import all of the useful objects.
 
 You will also need the following python packages installed:
 
