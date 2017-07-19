@@ -10,8 +10,8 @@ from astropy.table import Table,Column
 
 import re
 
-from sinc_interp import SincInterp
-from bsplines import Bspline
+from .sinc_interp import SincInterp
+from .bsplines import Bspline
 
 from copy import deepcopy
 
@@ -105,10 +105,10 @@ class Spectrum(object):
         if self.ef is not None:
             zout = self._interpolator_error(xnew)
             if (zout <= 0).any():
-                print 'Warning:  some variances are negative, flagged with complex errors'
+                print('Warning:  some variances are negative, flagged with complex errors')
             return self._interpolator(xnew),sp.sqrt(zout)
         else:
-            print 'Warning:  No error spectrum, return array of ones'
+            print('Warning:  No error spectrum, return array of ones')
             return self._interpolator(xnew),sp.ones(xnew.size)
 
     def set_interp(self,style='sinc',window1='lanczos',kw1=15,order1=3):
@@ -450,7 +450,7 @@ class EmissionLine(Spectrum):
         for i in range(bmax_i + 1):
             if self.f[i] > ftarget:
                 if i == 0:
-                    print 'Warning: edge of the blue wing > 0.5*blue_max'
+                    print('Warning: edge of the blue wing > 0.5*blue_max')
                     b1 = self.wv[0]
                     break
                 else:
@@ -461,7 +461,7 @@ class EmissionLine(Spectrum):
         for i in range(bmax_i + 1):
             j = bmax_i - i
             if j == 0:
-                print 'Warning: hit edge of the blue wing'
+                print('Warning: hit edge of the blue wing')
                 b2 = [self.wv[0]]
                 break
             if self.f[j] < ftarget:
@@ -477,7 +477,7 @@ class EmissionLine(Spectrum):
             j = self.wv.size - 1 - i
             if self.f[j] > ftarget:
                 if j == self.wv.size - 1:
-                    print 'Warning: edge of the red wing > 0.5*red_max'
+                    print('Warning: edge of the red wing > 0.5*red_max')
                     r1 = self.wv[-1]
                     break
                 else:
@@ -488,7 +488,7 @@ class EmissionLine(Spectrum):
         for i in range(self.wv.size  - rmax_i):
             j = rmax_i + i
             if j == self.wv.size - 1:
-                print 'Warning: hit the edge of the red wing'
+                print('Warning: hit the edge of the red wing')
                 r2 = [self.wv[-1]]
                 break
             if self.f[j] < ftarget:
@@ -988,9 +988,9 @@ def fitfunc_bound(func,pin,x,y,ey,pbound):
 ##########                                           pgtol
 #########                                           #                                 options={'disp':True}
 #########                                           )
-    print pbound
+    print(pbound)
     out = optimize.minimize(merit,pin,args=(func,x,y,ey),method='TNC',bounds = pbound,options={'disp':True,'maxiter':10000})
-    print 'success:',out.success
+    print('success:',out.success)
 #    print out.message
 #    errors = sp.sqrt(ey**2 * out.jac**2)
 #    print out.keys()
@@ -1029,14 +1029,14 @@ def extinction(lambda1in,R,unit = 'microns'):
         lambda1 = lambda1in
 
     if (lambda1 > 100).all():
-        print "Check units!  This program assumes microns"
+        print("Check units!  This program assumes microns")
 
     if (lambda1 > 3.0).any():
-        print  "Warning: extrapolating into the far IR (lambda > 3 microns)"
+        print ("Warning: extrapolating into the far IR (lambda > 3 microns)")
     if (lambda1 < 0.125).any():
-        print 'Warning:  extreme UV is an extrapolation'
+        print('Warning:  extreme UV is an extrapolation')
     if (lambda1 < 0.1).any():
-        print 'warning: extrapolating into the extreme UV (lambda < 1000 A)'
+        print('warning: extrapolating into the extreme UV (lambda < 1000 A)')
 
 
     a = sp.zeros(lambda1.size)

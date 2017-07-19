@@ -1,8 +1,6 @@
 import scipy as sp
 from scipy.signal import resample
 import matplotlib.pyplot as plt
-import sys
-sys.path.insert(0,'..')
 #from sinc_interp import *
 #from mapspec.sinc_interp2 import SincInterp
 from mapspec.sinc_interp import SincInterp
@@ -31,7 +29,7 @@ plt.plot(xb,yb,'co') #sinc interp wavelengths 2
 plt.figure()
 
 #now try on some data, this is the 
-x,y,z = sp.genfromtxt('test_data/test.dat',unpack=1)
+x,y,z = sp.genfromtxt('test.dat',unpack=1)
 m = (x>4800)*(x<5200)
 x = x[m]
 y = y[m]
@@ -43,7 +41,7 @@ x2 = sp.r_[x.min():x.max():1000j]
 y2 = L2(x2)
 
 x3 = sp.r_[x.min():x.max()-1:100j]
-print('new grid')
+print 'new grid'
 y3 = L2(x3)
 
 a = sp.r_[4900:4950:200j]
@@ -52,7 +50,7 @@ x4 = sp.r_[a,b]
 y4 = L2(x4)
 
 yi = L2(x)
-print(x2.shape,x3.shape,x.shape)
+print x2.shape,x3.shape,x.shape
 
 
 plt.plot(x,y,'b',label='orignal')  #original data

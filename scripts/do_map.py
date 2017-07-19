@@ -1,27 +1,26 @@
-import matplotlib
-matplotlib.use('TkAgg') 
-
 import scipy as sp
 import matplotlib.pyplot as plt
-from spectrum import *
-from mapspec import *
+import sys, os
+sys.path.insert(0, os.path.abspath(   os.path.dirname(__file__)) + '/..')
+
+from mapspec.spectrum import *
+from mapspec.mapspec import *
+
 from copy import deepcopy
 
-import sys,os,time
 
-from astropy.io import fits
+if len(sys.argv) == 1:
+    print('Usage:')
+    print('python  ref_smooth.py   ref.txt     window.txt      linear     speclist.txt    mapspec.params no_covar  chains ')
+    print('ref.txt                    --- reference spectrum (usually after it has been smoothed')
+    print('window.txt            --- window file in standard 2 column 3 line format')
+    print('linear                    --- interpolation method, chose something from scipy or bspline')
+    print('speclist.txt            --- text file with list of spectra to align (one filename per line)')
+    print('mapspec.params --- output file with parameters for each spectrum')
+    print('no_covar              --- flag for saving covariance matrix')
+    print('chains                   --- flag for saving MCMC chains')
+    sys.exit()
 
-def savefits(ofile,spec,head):
-    data = sp.array([
-            [spec.f],
-            [spec.ef]
-            ])
-    
-    #assume grid spacing and first pix has not changed
-    head['CRVAL1'] = spec.wv[0]
-    head['COMMENT'] = 'Modified by mapspec on %s'%(time.strftime("%c"))
-
-    fits.writeto(ofile,data,header=head,clobber=True)
 
 #How to interpolate?  Note that only linear interpolation does the
 #errors properly, for now
@@ -63,8 +62,8 @@ if sys.argv[7] == 'chains':
 
 #plt.ion()
 for spec in speclist:
-    print spec
-    s = FitsSpec(spec,style=istyle)
+    print(spec)
+    s = TextSpec(spec,style=istyle)
 
     s0 = get_cc(sref.f,s.f,sref.wv,s.wv)
     s.wv -= s0[0]
@@ -75,32 +74,28 @@ for spec in speclist:
     f   = RescaleModel(lref,kernel="Delta")
     try: 
         chi2_delta,p_delta,frac_delta = metro_hast(1000,l,f,keep=False)
-        print frac_delta
+        print(frac_delta)
     except:
         chi2_delta,p_delta,frac_delta = 999,{'shift':-99, 'scale':-99}, 0 
      
 
     f    = RescaleModel(lref,kernel="Gauss")
  
-    try: 
-#       keep = True returns the chain, which can be saved and used latter for getting model errors (mode_rescale.py).
-        chi2_gauss,p_gauss,frac_gauss,chain_gauss = metro_hast(5000,l,f,keep=True)
-#       Try this code to watch the chain as it progresses
-#        plt.ion()
-#        chi2_gauss,p_gauss,frac_gauss,chain_gauss = metro_hast(5000,l,f,keep=True,plot=True)
-        print frac_gauss
-    except:
-        chi2_gauss,p_gauss,frac_gauss = 999,{'shift':-99, 'scale':-99, 'width':-99}, 0 
-        
+    #    try: 
+    #       keep = True returns the chain, which can be saved and used latter for getting model errors (mode_rescale.py).
+    chi2_gauss,p_gauss,frac_gauss,chain_gauss = metro_hast(5000,l,f,keep=True)
+    #       Try this code to watch the chain as it progresses
+    #        plt.ion()
+    #        chi2_gauss,p_gauss,frac_gauss,chain_gauss = metro_hast(5000,l,f,keep=True,plot=True)
+    print(frac_gauss)
+    chi2_gauss,p_gauss,frac_gauss = 999,{'shift':-99, 'scale':-99, 'width':-99}, 0 
     if chi2_delta < chi2_gauss:
         f.p = {'shift':p_delta['shift'], 'scale':p_delta['scale'], 'width': 0.001 }
     else:
         f.p = p_gauss
 
     sout,dummy,covar = f.output(s)
-
-    hout = fits.getheader(spec)
-    savefits('scale_'+spec,sout,hout)
+    sp.savetxt('scale_'+spec,sp.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
 
     if get_covar:
         sp.savetxt('covar_matrices/covar_'+spec,covar)
@@ -127,7 +122,7 @@ for spec in speclist:
 
     try:
         chi2_herm,p_herm,frac_herm,chain_herm = metro_hast(50000,l,f,keep=True)
-        print frac_herm
+        print(frac_herm)
     except:
         chi2_herm,p_herm,frac_herm = 999, {'shift':99,'scale':-99,'width':-99,'h3':-99,'h4':-99}, 0 
 
@@ -146,10 +141,7 @@ for spec in speclist:
          chi2_herm,p_herm['shift'],p_herm['scale'],p_herm['width'],p_herm['h3'],p_herm['h4'],frac_herm)
         )
     fout.flush()
-
-    hout = fits.getheader(spec)
-    savefits('scale.h._'+spec,sout,hout)
-
+    sp.savetxt('scale.h._'+spec,sp.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
     if get_covar:
         sp.savetxt('covar_matrices/covar.h._'+spec,covar)
     if get_chains:

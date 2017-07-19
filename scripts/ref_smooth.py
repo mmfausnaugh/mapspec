@@ -3,9 +3,11 @@
 
 import scipy as sp
 import matplotlib.pyplot as plt
-from spectrum import *
-from mapspec import *
 import sys
+sys.path.insert(0, os.path.abspath(   os.path.dirname(__file__)) + '/..')
+
+from mapspec.spectrum import *
+from mapspec.mapspec import *
 
 
 """
@@ -48,12 +50,12 @@ the fits, and let's you interactively specify how much to smooth
 """
 
 if len(sys.argv) == 1:
-    print 'Usage:'
-    print 'python  ref_smooth.py   infile.txt  speclist   window outfile.txt'
-    print 'infile.txt---  input spectrum to smooth (usually the reference for alignment)'
-    print 'speclist--  1 col ascii file with list of files to compare---determines target resolution'
-    print 'window---  window file designating wavelengths for the EmissionLine'
-    print 'outfile.txt---  output spectrum, after smoothing'
+    print('Usage:')
+    print('python  ref_smooth.py   infile.txt  speclist   window outfile.txt')
+    print('infile.txt---  input spectrum to smooth (usually the reference for alignment)')
+    print('speclist--  1 col ascii file with list of files to compare---determines target resolution')
+    print('window---  window file designating wavelengths for the EmissionLine')
+    print('outfile.txt---  output spectrum, after smoothing')
     sys.exit()
 
 #reference
@@ -62,7 +64,7 @@ sref = TextSpec(sys.argv[1],style='linear')
 speclist = sp.genfromtxt(sys.argv[2],dtype=str)
 #line used to calculate resolution
 window   = sp.genfromtxt(sys.argv[3])
-print window
+print(window)
 
 lref = EmissionLine(sref,window[0],[window[1],window[2]])
 lcenter = lref.wv_mean()
@@ -76,7 +78,7 @@ dispdist = []
 
 
 plt.ion()
-print 'name         FWHM, FWHM fit'
+print('name         FWHM, FWHM fit')
 for spec in speclist:
     s = TextSpec(spec)
 
@@ -93,13 +95,13 @@ for spec in speclist:
     centdist.append(lmodel.p[1])
 
     fwhm,dum1 = l.fwhm(lcenter)
-    print spec, fwhm,lmodel.p[2]*2.35
+    print(spec, fwhm,lmodel.p[2]*2.35)
 
 
 
 #convert sigma to FWHM
 res = lmodelref.p[2]*2.35
-print 'parameters of referenc fit: (scale, center, width):',lmodelref.p
+print('parameters of referenc fit: (scale, center, width):',lmodelref.p)
 
 #check how good the gauasian fit is
 plt.plot(lref.wv,lref.f,'ko-',label='reference data')
@@ -107,8 +109,8 @@ plt.plot(lref.wv,lmodelref(lref.wv),'bo-',label='model')
 plt.legend(loc='upper left',frameon=0)
 plt.gca().set_title('Reference line profile')
 plt.draw()
-print 'Check that you believe the fit the reference line profile--need only be approximate'
-raw_input('Press enter to continue')
+print('Check that you believe the fit the reference line profile--need only be approximate')
+input('Press enter to continue')
 
 plt.clf()
 
@@ -117,8 +119,8 @@ plt.clf()
 plt.hist(centdist)
 plt.gca().set_title('Distribution of line centers')
 plt.draw()
-print 'Check that the center of the fits are close enough together that you trust the inferred line widths'
-raw_input('Press enter to continue')
+print('Check that the center of the fits are close enough together that you trust the inferred line widths')
+input('Press enter to continue')
 
 
 plt.clf()
@@ -131,13 +133,13 @@ plt.gca().set_xlabel('FWHM (angstroms)')
 plt.gca().set_title('Line Model FWHM')
 plt.draw()
 
-print 'red line shows native reference resolution:',res
+print('red line shows native reference resolution:',res)
 
 newres = None
-cut = raw_input('Where to cut resolution distribution? (type "m" for "manual" to enter smoothing width by hand)\n')
+cut = input('Where to cut resolution distribution? (type "m" for "manual" to enter smoothing width by hand)\n')
 if 'm' in cut:
     #assumes the user will put in a FWHM
-    newres = float(raw_input('Enter smoothing width\n'))/2.35
+    newres = float(input('Enter smoothing width\n'))/2.35
 else:
     cut = float(cut)
 
@@ -148,12 +150,12 @@ if newres == None:
 ##    print 'dadada'
     m = dispdist < cut
     while len(dispdist[m]) == 0:
-        cut = float(raw_input( 'Try a different cut (cut is below the lowest FWHM)\n'))/2.35
+        cut = float(input( 'Try a different cut (cut is below the lowest FWHM)\n'))/2.35
         m = dispdist < cut
 
     newres = sp.sqrt(dispdist[m].max()**2 - res**2 )/2.35
-    print 'max resolution below the cut:', dispdist[m].max()
-    print 'smoothing width (pixels):',newres*2.35, '('+str(2.35*newres/(s.wv[1] - s.wv[0]))+')'
+    print('max resolution below the cut:', dispdist[m].max())
+    print('smoothing width (pixels):',newres*2.35, '('+str(2.35*newres/(s.wv[1] - s.wv[0]))+')')
 
 #do the smoothing
 newres_pix =  newres/(s.wv[1] - s.wv[0])
@@ -162,7 +164,7 @@ lref = EmissionLine(sref,window[0],[window[1],window[2]])
 lmodel = LineModel(lref,func='gaussian')
 res2 = lmodel.p[2]*2.35
 
-print 'new reference resolution:',res2
+print('new reference resolution:',res2)
 #plt.hist(dispdist,edgecolor='k',histtype='step')
 plt.hist(dispdist)
 
@@ -173,7 +175,7 @@ plt.legend(loc='upper left',frameon=0)
 plt.gca().set_xlabel('FWHM (angstroms)')
 plt.gca().set_title('Line Model FWHM')
 plt.draw()
-raw_input('Press enter to to save reference, else Ctr+C to quit')
+input('Press enter to to save reference, else Ctr+C to quit')
 
 
 

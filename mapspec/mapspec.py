@@ -3,7 +3,9 @@ from scipy.integrate import simps
 from scipy import linalg
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
-from spectrum import *
+
+from .spectrum import *
+
 from copy import deepcopy
 #these are 'probalists', turns out to matter in order to match van der
 #Marel & Franx 1993
@@ -119,7 +121,7 @@ class RescaleModel(object):
         icut = prior_dist.size*burn
         prior_dist = prior_dist[icut::]
         c1,m,c2 = sp.percentile(prior_dist,[16,50,84])
-        print c1,m,c2
+        print(c1,m,c2)
 
         #will model the distribution as a  gaussian, for now....
         self.prior_prob[pname] = lambda x: sp.exp(-0.5*(x - m)**2/ ( (c2-c1)/2 )**2 )
@@ -208,7 +210,7 @@ class RescaleModel(object):
         #trim 10% of data to help with edge effects and shifting the
         #data.  This number is hard-coded so that the degrees of
         #freedom are fixed during the fit.
-        trim = round(0.05* (self.Lref.wv[m].size)) 
+        trim = int(round(0.05* (self.Lref.wv[m].size)) )
 
 
         z = z[trim:-trim]
@@ -605,7 +607,7 @@ def metro_hast(ntrial,D,M,plot=False,keep=False):
             c.add(M,chi2)
                 
         if i%500 == 0 :
-            print i,chi2best,chi2try
+            print(i,chi2best,chi2try)
             if plot ==1:
                 c.plot()
 

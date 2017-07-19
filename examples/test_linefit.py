@@ -1,10 +1,8 @@
 import scipy as sp
 import matplotlib.pyplot as plt
 import sys
-
-sys.path.append('..')
-
-from spectrum import TextSpec,TextSpec_2c,EmissionLine,LineModel
+sys.path.insert(0, '..')
+from mapspec.spectrum import TextSpec,TextSpec_2c,EmissionLine,LineModel
 """
 Examples for how to use the line fitting functionality, and to test
 the install of spectrum.py.
@@ -24,7 +22,7 @@ window = [ [4821,5009],[4672,4711],[5167,5207] ]
 #[OIII]lambda 5007
 oiii   = [ [5066,5108],[5057,5066],[5108,5165] ]
 
-s = TextSpec('test.dat',style='sinc')
+s = TextSpec('test_data/test.dat',style='sinc')
 
 
 l = EmissionLine(s,window[0],[window[1],window[2]])

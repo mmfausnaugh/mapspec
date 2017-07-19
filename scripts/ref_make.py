@@ -1,9 +1,10 @@
 import scipy as sp
 from scipy.signal import correlate
 import matplotlib.pyplot as plt
-from spectrum import Spectrum,EmissionLine,TextSpec
-from copy import deepcopy
 import sys
+sys.path.insert(0, os.path.abspath(   os.path.dirname(__file__)) + '/..')
+from mapspec.spectrum import Spectrum, EmissionLine, TextSpec
+from copy import deepcopy
 
 """
 This will combine a list of spectra using a weighted average.
@@ -55,18 +56,18 @@ def get_cc(y1,y2,x):
 def tidy(xout,yout,zout):
     xmin = xout[0]
     for x in xout:
-        print x.size, x[0]
+        print(x.size, x[0])
         if x.size < xmin.size:
             xmin = deepcopy(x)
 
-    print xmin
+    print(xmin)
     for i in range(sp.shape(xout)[0]):
         j = sp.in1d(xout[i],xmin)
 
         yout[i] = yout[i][j]
         zout[i] = zout[i][j]
 
-    print sp.shape(xout),sp.shape(yout),sp.shape(zout)
+    print(sp.shape(xout),sp.shape(yout),sp.shape(zout))
 #    print yout
     yout  = sp.array(yout)
     zout = sp.array(zout)
@@ -96,7 +97,7 @@ def HM(ntrial,s1,s2,p):
         chi2try = get_chi2(s1,s2,ptry)
 
         if i%10 == 0 :
-            print i,chi2best,chi2,chi2try
+            print(i,chi2best,chi2,chi2try)
 
         if chi2try < chi2:
             
@@ -120,11 +121,11 @@ def HM(ntrial,s1,s2,p):
     return chi2best,pbest,accept/float(ntrial)
 
 if len(sys.argv) == 1:
-    print 'Usage:'
-    print 'python ref_make.py   speclist    window  outfile.txt'
-    print 'speclist--      1 col ascii file with list of files to combine'
-    print 'window---       window file designating wavelengths for the EmissionLine'
-    print 'outfile.txt---  output spectrum, after smoothing'
+    print('Usage:')
+    print('python ref_make.py   speclist    window  outfile.txt')
+    print('speclist--      1 col ascii file with list of files to combine')
+    print('window---       window file designating wavelengths for the EmissionLine')
+    print('outfile.txt---  output spectrum, after smoothing')
     sys.exit()
 
 #list of spectra for the reference
@@ -156,23 +157,23 @@ shiftout = []
 
 
 lref = EmissionLine(S[0],window[0],[window[1],window[2]])
-print lref.style
+print(lref.style)
 
 for s in S[1::]:
     
     shift0 = get_cc(S[0].f,s.f,S[0].wv)
-    print 'shift0',shift0
+    print('shift0',shift0)
     shift0 = 0
     l = EmissionLine(s,window[0],[window[1],window[2]])
 #    print l.ef[0:5]
-#    raw_input()
+#    input()
 #    plt.plot(l.wv,l.f,'k')
 #    plt.plot(lref.wv,lref.f,'r')
 #    plt.show()
     chi,shiftuse,frac = HM(1000,lref,l,shift0)
 
-    print 'chi2,shiftuse,frac'
-    print chi,shiftuse,frac
+    print('chi2,shiftuse,frac')
+    print(chi,shiftuse,frac)
 
     shiftout.append(shiftuse)
     s.wv -= shiftuse
