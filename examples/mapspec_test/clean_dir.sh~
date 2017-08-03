@@ -1,4 +1,0 @@
-rm -fr chains
-rm -f mapsec.params
-rm -f scale_*.txt
-rm -f scale.h._*.txt
