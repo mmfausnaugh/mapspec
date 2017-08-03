@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 #python ./do_map.py ref.smooth.txt oiii.window linear speclist_use mapspec.params no_covar chains
-python ../../scripts/do_map.py ref.smooth.txt oiii.window linear speclist_use mapspec.params no_covar chains
+do_map ref.smooth.txt oiii.window linear speclist_use mapspec.params no_covar chains
 #d="$(pwd)"
 #echo "mapspec finsished in $d" | mail -s 'process is done' your_email@address.edu
 

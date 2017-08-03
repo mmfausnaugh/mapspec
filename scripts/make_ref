@@ -1,8 +1,9 @@
+#!python
 import scipy as sp
 from scipy.signal import correlate
 import matplotlib.pyplot as plt
 import sys
-sys.path.insert(0, os.path.abspath(   os.path.dirname(__file__)) + '/..')
+#sys.path.insert(0, os.path.abspath(   os.path.dirname(__file__)) + '/..')
 from mapspec.spectrum import Spectrum, EmissionLine, TextSpec
 from copy import deepcopy
 

@@ -323,7 +323,7 @@ class Chain(object):
 
             self.figure,(self.axes) = plt.subplots( len(M.p.keys()) + 1,1)
 
-        self.pchain.append(deepcopy( M.p.values() ))
+        self.pchain.append( list(M.p.values()) )
         self.lnlikely.append(chi2)
 
     def save(self,ofile):
