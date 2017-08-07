@@ -4,9 +4,13 @@
 
 * * *
 
-# Installation and Dependencies#
+# Installation and Dependencies #
 
-`mapspec` is a fairly simple python package---just download it (best to use `git clone`) and put it in your python installation, your PYTHONPATH, or working directory.
+`mapspec` is a fairly simple python package.  Download it (best to use `git clone`), cd to the mapspec directory, and run
+
+`python setup.py install`
+
+Alternatively, put the mapspec directory in your PYTHONPATH or your current working directory.
 
 You will also need the following python packages installed:
 
@@ -15,7 +19,7 @@ You will also need the following python packages installed:
 * matplotlib (for using built-in plotting functions)
 * astropy (for reading and writting fits files)
 
-Note that the code is in python 2.7---updating to python 3 is the first item on the to-do list.
+Code is compatible with both python 2.7 and 3.6.
 
 To test the installation, go to `examples` and try running the test scripts:
 
@@ -24,11 +28,11 @@ To test the installation, go to `examples` and try running the test scripts:
 
 These mostly deal with data structures in `spectrum.py`; to test the rescaling procedure itself, go to `mapspec_test` and run
 
-   `bash ../../run_map.sh`
+   `sh run_map.sh`
 
 # Quick Start #
 
-If you want to get right into it, the shell script `run_map.sh` gives a basic command for aligning spectra.  However, if you are wary of black boxes, skip to the 'Outline' (below).
+If you want to get right into it, the shell script `run_map.sh` gives a basic command for aligning spectra (the `do_map` command comes from a script that was installed during setup).  However, if you are wary of black boxes, skip to the 'Outline' (below).
 
 Comments inside `run_map.sh` parse all arguments of this command, but for completeness, here are the data files that you need:
 
@@ -38,9 +42,11 @@ Comments inside `run_map.sh` parse all arguments of this command, but for comple
 
 Examples of all of these files are in `examples/mapspec_test`.
 
-The actual work is done by a `python` script called `do_map.py`, which runs a list of spectra through the rescaling model.  This is the normal _modus operandi_ for reverberation mapping studies, so `do_map.py` might be adequate for most users.  The output (using the Gauss-Hermite smoothing kernel) will be saved in files called 'scale.h._input_spectrum_name'.
+The actual work is done by a `python` script called `do_map`, which runs a list of spectra through the rescaling model.  This is the normal _modus operandi_ for reverberation mapping studies, so `do_map` might be adequate for most users.  The output (using the Gauss-Hermite smoothing kernel) will be saved in files called 'scale.h._input_spectrum_name'.
 
-It is probably useful to learn how `do_map.py` works---the script may not be perfect for your requirements, and `do_map.py` also does some simple model comparisons (Gaussian smoothing vs. Gauss-Hermite smoothing).   The file `mapspec.params` compares the fits from different different rescaling procedures, and two output spectra are saved by default ('scale_input_spectrum_name' for Gaussian smoothing and  'scale.h._input_spectrum_name' for Gauss-Hermite smoothing).
+It is probably useful to learn how `do_map` works---the source is in `mapspec/scripts/` (along with other potentially useful scripts).  
+
+`do_map` also does some simple model comparisons (Gaussian smoothing vs. Gauss-Hermite smoothing).   The file `mapspec.params` compares the fits from different different rescaling procedures, and two output spectra are saved by default ('scale_input_spectrum_name' for Gaussian smoothing and  'scale.h._input_spectrum_name' for Gauss-Hermite smoothing).
 
 
 * * *
@@ -51,7 +57,7 @@ It is probably useful to learn how `do_map.py` works---the script may not be per
 
 There are two main parts of the program:  First, general-usage spectrum utilities, which are bundled in `spectrum.py`.  Second, the rescaling procedure, which is kept in `mapspec.py`.  
 
-Some helpful scripts for constructing a reference spectrum are also provided----these are `ref_make.py` and `ref_smooth.py`, check the internal comments for details.
+Some helpful scripts for constructing a reference spectrum are also provided----these are `ref_make.py` and `ref_smooth.py`, check the internal comments for details.  By default, they are installed to your system as scripts.
 
 We begin by describing (with illustrative examples) the spectrum utilities.
 
