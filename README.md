@@ -10,7 +10,13 @@
 
 `python setup.py install`
 
-Alternatively, put the mapspec directory in your PYTHONPATH or your current working directory.
+This installs to your full system---consider using a virtual environment (virtualenv or conda) or 
+
+`python setup.py install --prefix MAPSPECDIR`
+
+for more fine grained control.  
+
+Alternatively, put the mapspec directory in your PYTHONPATH or your current working directory.  In these cases, import statements change from, e.g., `from mapspec.spectrum import *` to `from mapspec.mapspec.spectrum import *`, etc.  You will need to move scripts out of the `scripts` directory and change the imports manually, as well.
 
 You will also need the following python packages installed:
 
@@ -53,11 +59,11 @@ It is probably useful to learn how `do_map` works---the source is in `mapspec/sc
 
 # Outline #
 
-`mapsec` is object-oriented and is designed to be modular and highly extensible.  It makes heavy use of numpy and scipy libraries, and was designed to easily integrate with these packages.
+`mapspec` is object-oriented and is designed to be modular and highly extensible.  It makes heavy use of numpy and scipy libraries, and was designed to easily integrate with these packages.
 
 There are two main parts of the program:  First, general-usage spectrum utilities, which are bundled in `spectrum.py`.  Second, the rescaling procedure, which is kept in `mapspec.py`.  
 
-Some helpful scripts for constructing a reference spectrum are also provided----these are `ref_make.py` and `ref_smooth.py`, check the internal comments for details.  By default, they are installed to your system as scripts.
+Some helpful scripts for constructing a reference spectrum are also provided----these are `make_ref` and `smooth_ref`, check the internal comments for details.  By default, they are installed to your system as scripts.
 
 We begin by describing (with illustrative examples) the spectrum utilities.
 
@@ -199,7 +205,7 @@ Other interpolation methods are supported---any 'kind' keyword for `scipy.interp
 
 These alternative methods do not support full error propagation.  For now, they will perform the same operation as called for on the flux spectrum, but on the *square* of the error spectrum (i.e., the variance).  This usually results in errors similar to the input and roughly preserves the fractional uncertainty.  However, we note that this is not strictly correct, and may be a feature that we improve in the future.
 
-## Calculation of the Likelihood and Fitting Procedure##
+## Calculation of the Likelihood and Fitting Procedure ##
 
 `mapspec` aligns the data and the model by minimzing: (data - model)^2/error^2, where data is the input line, model is the reference value chosen at instantization, and error^2 = (reference error)^2 + (data error)^2.  In other words, `mapspec` takes a maximum likelihood approach, assuming normally distributed residuals and independent uncertainties on the data and reference.
 
