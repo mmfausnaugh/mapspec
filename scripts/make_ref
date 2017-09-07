@@ -164,7 +164,7 @@ for s in S[1::]:
     
     shift0 = get_cc(S[0].f,s.f,S[0].wv)
     print('shift0',shift0)
-    shift0 = 0
+##    shift0 = 0
     l = EmissionLine(s,window[0],[window[1],window[2]])
 #    print l.ef[0:5]
 #    input()
