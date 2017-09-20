@@ -35,11 +35,10 @@ redcont_blue_edge  redcont_red_edge
 
 
 def get_chi2(s1,s2,shift):
-    trim = int(abs(shift/(s1.wv[1] - s1.wv[0]))) + 1
+    trim = int(round(abs(shift[0]/(s1.wv[1] - s1.wv[0])))) + 1
     if trim == 0: trim = 1
     xnew = s2.wv[trim : -trim] - shift
     #resample the reference at the new wavelength grid
-
 
     y1,z1 = s1.interp(xnew)
 
@@ -96,9 +95,11 @@ def HM(ntrial,s1,s2,p):
         ptry = p + sp.randn()*0.1*deltawv
  
         chi2try = get_chi2(s1,s2,ptry)
-
         if i%10 == 0 :
             print(i,chi2best,chi2,chi2try)
+        if chi2try < 0:
+            next
+        
 
         if chi2try < chi2:
             
@@ -130,7 +131,7 @@ if len(sys.argv) == 1:
     sys.exit()
 
 #list of spectra for the reference
-reflist = sp.genfromtxt(sys.argv[1],dtype='a')
+reflist = sp.genfromtxt(sys.argv[1],dtype=str)
 #window for line to align
 window = sp.genfromtxt(sys.argv[2])
 
@@ -156,13 +157,15 @@ zout = []
 
 shiftout = []
 
-
 lref = EmissionLine(S[0],window[0],[window[1],window[2]])
-print(lref.style)
+dwv = S[0].wv[1] - S[0].wv[0]
 
 for s in S[1::]:
-    
-    shift0 = get_cc(S[0].f,s.f,S[0].wv)
+
+    #best to cross correlate local to the line, +/- say 100 wavelength units
+    mref = (S[0].wv > window[0][0] - 100*dwv )&( S[0].wv < window[0][1] + 100*dwv)
+    m = (s.wv > window[0][0] - 100*dwv )&( s.wv < window[0][1] + 100*dwv)
+    shift0 = get_cc(S[0].f[mref], s.f[m], S[0].wv[mref])
     print('shift0',shift0)
 ##    shift0 = 0
     l = EmissionLine(s,window[0],[window[1],window[2]])
