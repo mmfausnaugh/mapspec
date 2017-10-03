@@ -427,10 +427,10 @@ class EmissionLine(Spectrum):
 
         #check double peaked
         bmax   = self.f[bmask].max()
-        bmax_i = sp.where( self.f == bmax)[0]
+        bmax_i = sp.where( self.f == bmax)[0][0]
         rmax   = self.f[rmask].max()
-        rmax_i = sp.where( self.f == rmax)[0]
-
+        rmax_i = sp.where( self.f == rmax)[0][0]
+        
         wvmask = (self.wv > self.wv[bmax_i] )*(self.wv < self.wv[rmax_i] )
         if (self.f[wvmask].size > 0 ) and ( self.f[wvmask] < min(bmax, rmax)  ).any():
             doublepeaked = True
@@ -498,11 +498,11 @@ class EmissionLine(Spectrum):
 
         fwhm_red = (r1 + r2)/2.
 
-        outdic = {'blue':(fwhm_blue - center)[0],
-                  'red'  :(fwhm_red - center)[0],
+        outdic = {'blue':(fwhm_blue - center),
+                  'red'  :(fwhm_red - center),
                   'doublepeaked':doublepeaked
                       }
-        return ( (fwhm_red - fwhm_blue)[0], outdic)
+        return ( (fwhm_red - fwhm_blue), outdic)
 
     def ip_wv(self,frac):
         """

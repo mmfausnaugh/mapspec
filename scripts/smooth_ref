@@ -160,7 +160,7 @@ if newres == None:
 
 #do the smoothing
 newres_pix =  newres/(s.wv[1] - s.wv[0])
-sref.smooth(10.*newres_pix, name = ('gaussian', newres_pix) )
+sref.smooth(int(5.*newres_pix)*2 + 1, name = ('gaussian', newres_pix) )
 lref = EmissionLine(sref,window[0],[window[1],window[2]])
 lmodel = LineModel(lref,func='gaussian')
 res2 = lmodel.p[2]*2.35

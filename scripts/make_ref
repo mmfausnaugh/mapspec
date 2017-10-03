@@ -182,7 +182,7 @@ for s in S[1::]:
     shiftout.append(shiftuse)
     s.wv -= shiftuse
 
-    trim = int(round(abs(shiftuse/(s.wv[1] - s.wv[0])))) + 1
+    trim = int(round(abs(shiftuse[0]/(s.wv[1] - s.wv[0])))) + 1
 #    if trim > trimmax: trimmax = trim
 #    print 'trim',trimmax
     y1,z1 = s.interp(S[0].wv[trim:-trim])
