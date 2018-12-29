@@ -45,6 +45,15 @@ speclist = sp.genfromtxt(sys.argv[4],dtype=str)
 #output file of parameters
 fout = open(sys.argv[5],'a')
 
+fout.write(
+    "%15s % 12s  %12s % 12s % 12s % 7s %12s % 12s % 12s % 12s % 7s % 12s % 12s % 12s % 12s % 9s % 9s %12s\n"%
+    ('file name','cc shift',
+     'chi2','shift','scale','frac',
+     'chi2','shift','scale','width','frac',
+     'chi2','shift','scale','width','h3','h4','frac')
+)
+
+
 #write covariances?
 if sys.argv[6] == 'covar':
     get_covar = True
@@ -57,15 +66,20 @@ if sys.argv[7] == 'chains':
     get_chains = True
     if os.path.isdir('chains') == False:
         os.system('mkdir chains')
-    else:
-        get_chains = False
+else:
+    get_chains = False
 
 #plt.ion()
 for spec in speclist:
     print(spec)
     s = TextSpec(spec,style=istyle)
 
-    s0 = get_cc(sref.f,s.f,sref.wv,s.wv)
+    #best to cross correlate local to the line, +/- say 100 wavelength units
+    dwv = sref.wv[1] - sref.wv[0]
+    mref = (sref.wv > window[0][0] - 100*dwv )&( sref.wv < window[0][1] + 100*dwv)
+    m = (s.wv > window[0][0] - 100*dwv )&( s.wv < window[0][1] + 100*dwv)
+    s0 = get_cc(sref.f[mref], s.f[m], sref.wv[mref], s.wv[m])
+#    s0 = get_cc(sref.f,s.f,sref.wv,s.wv)
     s.wv -= s0[0]
 
     l = EmissionLine(s,window[0],[ window[1],window[2] ])
@@ -88,13 +102,12 @@ for spec in speclist:
     #        plt.ion()
     #        chi2_gauss,p_gauss,frac_gauss,chain_gauss = metro_hast(5000,l,f,keep=True,plot=True)
     print(frac_gauss)
-    chi2_gauss,p_gauss,frac_gauss = 999,{'shift':-99, 'scale':-99, 'width':-99}, 0 
     if chi2_delta < chi2_gauss:
         f.p = {'shift':p_delta['shift'], 'scale':p_delta['scale'], 'width': 0.001 }
     else:
         f.p = p_gauss
 
-    sout,dummy,covar = f.output(s)
+    sout,dummy = f.output(s,getcovar=get_covar)
     sp.savetxt('scale_'+spec,sp.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
 
     if get_covar:
@@ -131,8 +144,8 @@ for spec in speclist:
     else:
         f.p = p_herm
 
-    sout,dummy,covar = f.output(s)
-
+    sout,dummy = f.output(s,getcovar=get_covar)
+    
     fout.write(
         "%15s % 8.4f  %10.2f % 8.4f % 8.4f % 5.2f %10.2f % 8.4f % 8.4f % 8.4f % 5.2f % 10.2f % 8.4f % 8.4f % 8.4f % 5.4e % 5.4e %8.4f\n"%
         (spec,s0[0],

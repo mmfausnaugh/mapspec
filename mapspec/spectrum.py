@@ -565,7 +565,7 @@ class LineModel(EmissionLine):
 
         self.floating = floating
 
-        if window != None:
+        if window is not None:
              x  = EmLine.wv[window]
              y  = EmLine.f[window] #- EmLine.lf[m].min()
              z  = EmLine.ef[window]
@@ -662,7 +662,8 @@ class LineModel(EmissionLine):
         if func == 'data':
             #is there every a case not to give an offset for an
             #empirical line?
-            pinit = [ 1.0,x.mean(),0.0 ]
+#            pinit = [ 1.0,x.mean(),0.0 ]
+            pinit = [ 1.0,sp.sum(x*y)/y.sum(), 0.0 ]
             l = argv[0]
             fuse = lambda x,p : empiriline(x,p,l)
 
@@ -748,9 +749,11 @@ def empiriline(x,p,L):
     to float.
     """
     xnew = x - p[1]
+    yout = sp.zeros(len(xnew))
     m = (xnew >= L.wv.min())*(xnew <= L.wv.max() )
     ynew,znew = L.interp(xnew[m])
-    return p[0]*ynew + p[2]
+    yout[m] = p[0]*ynew + p[2]
+    return yout
 
 #functions for use with Line Model
 def gauss(x,p):
