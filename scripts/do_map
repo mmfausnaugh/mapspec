@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import sys, os
 #sys.path.insert(0, os.path.abspath(   os.path.dirname(__file__)) + '/..')
 
-from mapspec.spectrum import *
-from mapspec.mapspec import *
+from mapspec.mapspec.spectrum import *
+from mapspec.mapspec.mapspec import *
 
 
 
@@ -87,7 +87,7 @@ for spec in speclist:
 
     f   = RescaleModel(lref,kernel="Delta")
     try: 
-        chi2_delta,p_delta,frac_delta = metro_hast(1000,l,f,keep=False)
+        chi2_delta,p_delta,frac_delta = metro_hast(2000,l,f,keep=False)
         print(frac_delta)
     except:
         chi2_delta,p_delta,frac_delta = 999,{'shift':-99, 'scale':-99}, 0 
@@ -97,7 +97,7 @@ for spec in speclist:
  
     #    try: 
     #       keep = True returns the chain, which can be saved and used latter for getting model errors (mode_rescale.py).
-    chi2_gauss,p_gauss,frac_gauss,chain_gauss = metro_hast(5000,l,f,keep=True)
+    chi2_gauss,p_gauss,frac_gauss,chain_gauss = metro_hast(10000,l,f,keep=True)
     #       Try this code to watch the chain as it progresses
     #        plt.ion()
     #        chi2_gauss,p_gauss,frac_gauss,chain_gauss = metro_hast(5000,l,f,keep=True,plot=True)
@@ -134,7 +134,7 @@ for spec in speclist:
 #    f.make_func_prior('width', wprior, [1.8, 1.0] )
 
     try:
-        chi2_herm,p_herm,frac_herm,chain_herm = metro_hast(50000,l,f,keep=True)
+        chi2_herm,p_herm,frac_herm,chain_herm = metro_hast(100000,l,f,keep=True)
         print(frac_herm)
     except:
         chi2_herm,p_herm,frac_herm = 999, {'shift':99,'scale':-99,'width':-99,'h3':-99,'h4':-99}, 0 
