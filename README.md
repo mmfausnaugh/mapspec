@@ -1,6 +1,6 @@
 # mapspec #
 
-`mapspec` stands for **M**cmc **A**lgorithm for **P**arameters of **SPEC**tra.  It was originally designed to rescale astronomical spectra to a standard flux scale, using a method similar to that of [van Groningen & Wanders 1992](http://adsabs.harvard.edu/abs/1992PASP..104..700V).  Full details of the method are in [Fausnaugh 2016](https://arxiv.org/abs/1609.04014), accepted for publication in PASP (please cite this paper if you use the code).  Along the way, several spectra analysis tools useful for dealing with bright/broad emission lines have been implemented.
+`mapspec` stands for **M**cmc **A**lgorithm for **P**arameters of **SPEC**tra.  It was originally designed to rescale astronomical spectra to a standard flux scale, using a method similar to that of [van Groningen & Wanders 1992](http://adsabs.harvard.edu/abs/1992PASP..104..700V).  Full details of the method are in [Fausnaugh 2017](https://ui.adsabs.harvard.edu/abs/2017PASP..129b4007F/abstract), accepted for publication in PASP (please cite this paper if you use the code).  Along the way, several spectra analysis tools useful for dealing with bright/broad emission lines have been implemented.
 
 * * *
 
@@ -14,18 +14,11 @@ This installs to your full system---consider using a virtual environment (virtua
 
 `python setup.py install --prefix MAPSPECDIR`
 
-for more fine grained control.  
+for more fine-grained control.  
 
-Alternatively, put the mapspec directory in your PYTHONPATH or your current working directory.  In these cases, import statements change from, e.g., `from mapspec.spectrum import *` to `from mapspec.mapspec.spectrum import *`, etc.  You will need to move scripts out of the `scripts` directory and change the imports manually, as well.
+Alternatively, put the mapspec directory in your PYTHONPATH or your current working directory.  
 
-You will also need the following python packages installed:
-
-* numpy
-* scipy
-* matplotlib (for using built-in plotting functions)
-* astropy (for reading and writting fits files)
-
-Code is compatible with both python 2.7 and 3.6.
+Code is compatible with python2.7 and python3.6 or later.
 
 To test the installation, go to `examples` and try running the test scripts:
 
