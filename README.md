@@ -1,58 +1,55 @@
 # mapspec #
 
-`mapspec` stands for **M**cmc **A**lgorithm for **P**arameters of **SPEC**tra.  It was originally designed to rescale astronomical spectra to a standard flux scale, using a method similar to that of [van Groningen & Wanders 1992](http://adsabs.harvard.edu/abs/1992PASP..104..700V).  Full details of the method are in [Fausnaugh 2016](https://arxiv.org/abs/1609.04014), accepted for publication in PASP (please cite this paper if you use the code).  Along the way, several spectra analysis tools useful for dealing with bright/broad emission lines have been implemented.
+`mapspec` stands for **M**cmc **A**lgorithm for **P**arameters of **SPEC**tra.  It was originally designed to rescale astronomical spectra to a standard flux scale, using a method similar to that of [van Groningen & Wanders 1992](http://adsabs.harvard.edu/abs/1992PASP..104..700V).  Full details of the method are in [Fausnaugh 2017](https://ui.adsabs.harvard.edu/abs/2017PASP..129b4007F/abstract), published in  PASP (please cite this paper if you use the code).  Along the way, several spectra analysis tools useful for dealing with bright/broad emission lines have been implemented.
 
 * * *
 
-# Installation and Dependencies #
+# Installation #
 
-`mapspec` is a fairly simple python package.  Download it (best to use `git clone`), cd to the mapspec directory, and run
+`mapspec` is a fairly simple python package.  Download it with `git clone`, `cd` to the mapspec directory, and run
 
-`python setup.py install`
+```
+python setup.py sdist
+pip install -e ./
+```
 
 This installs to your full system---consider using a virtual environment (virtualenv or conda) or 
 
-`python setup.py install --prefix MAPSPECDIR`
+```
+python setup.py sdist
+pip install ./ --user <MAPSPECDIR>
+```
 
-for more fine grained control.  
+for more fine-grained control.  
 
-Alternatively, put the mapspec directory in your PYTHONPATH or your current working directory.  In these cases, import statements change from, e.g., `from mapspec.spectrum import *` to `from mapspec.mapspec.spectrum import *`, etc.  You will need to move scripts out of the `scripts` directory and change the imports manually, as well.
+Alternatively, put the mapspec directory in your PYTHONPATH or your current working directory.  
 
-You will also need the following python packages installed:
+`mapspec` is compatible with python 2.7 and python 3.6 or later.
 
-* numpy
-* scipy
-* matplotlib (for using built-in plotting functions)
-* astropy (for reading and writting fits files)
+To test the installation, go to `examples` and try running the regression test script:
 
-Code is compatible with both python 2.7 and 3.6.
+    cd ../mapspec_test
+    bash run_test.sh
 
-To test the installation, go to `examples` and try running the test scripts:
-
-    python test_sincinterp.py
-    python test_linefit.py
-
-These mostly deal with data structures in `spectrum.py`; to test the rescaling procedure itself, go to `mapspec_test` and run
-
-   `sh run_map.sh`
+`run_test.sh` runs the regression test---it runs mapspec on some sample data and checks that the outputs match standardized files in `mapspec_test/output_checks`.  The tests take about 10 minutes to run, and the results can be plotted with `mapspec_test/plot_test.py`.  More details are in `mapspec_test/README`.
 
 # Quick Start #
 
-If you want to get right into it, the shell script `run_map.sh` gives a basic command for aligning spectra (the `do_map` command comes from a script that was installed during setup).  However, if you are wary of black boxes, skip to the 'Outline' (below).
+The workhorse script is `script/do_map`, which is available from the command line after installing `mapspec` and has a help function.
 
-Comments inside `run_map.sh` parse all arguments of this command, but for completeness, here are the data files that you need:
+Here are the data files that you need:
 
-* A reference spectrum in 3 column ascii format (wavelength, flux, and flux error)
-* A file with wavelength regions for the emission line.  This should be 3 lines: 1)  the wavelength window of the emission line, 2) the wavelength window of the blueward continuum, and 3) the wavelength window of the redward continuum.  Each line has 2 numbers: the blue edge of the wavelength window and the red edge of the wavelength window
-* A list of files with spectra to rescale, 1 file per line.  Like the reference, the spectra should be in 3 column ascii format
+* A reference spectrum in 3 column ascii format (wavelength, flux, and flux error).
+* A file with wavelength regions for the emission line.  This should have 3 rows: 1)  the wavelength window of the emission line, 2) the wavelength window of the blueward continuum, and 3) the wavelength window of the redward continuum.  Each line has 2 numbers: the blue edge of the wavelength region window and the red edge of the wavelength region window.
+* A list of files with spectra to rescale, 1 file per line.  Like the reference, the spectra should be in 3 column ascii format.
 
 Examples of all of these files are in `examples/mapspec_test`.
 
-The actual work is done by a `python` script called `do_map`, which runs a list of spectra through the rescaling model.  This is the normal _modus operandi_ for reverberation mapping studies, so `do_map` might be adequate for most users.  The output (using the Gauss-Hermite smoothing kernel) will be saved in files called 'scale.h._input_spectrum_name'.
+`do_map` runs a list of spectra through the rescaling model.  This is the normal _modus operandi_ for reverberation mapping studies, so `do_map` may have everything that most users need.  The output (using the Gauss-Hermite smoothing kernel) will be saved in files called 'scale.h._<input_spectrum_name>'.
 
-It is probably useful to learn how `do_map` works---the source is in `mapspec/scripts/` (along with other potentially useful scripts).  
+To see how `do_map` works, you can look at the source in `mapspec/scripts/do_map`.
 
-`do_map` also does some simple model comparisons (Gaussian smoothing vs. Gauss-Hermite smoothing).   The file `mapspec.params` compares the fits from different different rescaling procedures, and two output spectra are saved by default ('scale_input_spectrum_name' for Gaussian smoothing and  'scale.h._input_spectrum_name' for Gauss-Hermite smoothing).
+`do_map` also does some simple model comparisons (Gaussian smoothing vs. Gauss-Hermite smoothing).   The file `mapspec.params` compares the chi^2 from two different different rescaling models, and two output spectra are saved by default ('scale_<input_spectrum_name>' for Gaussian smoothing and  'scale.h._<input_spectrum_name>' for Gauss-Hermite smoothing).
 
 
 * * *
@@ -61,9 +58,9 @@ It is probably useful to learn how `do_map` works---the source is in `mapspec/sc
 
 `mapspec` is object-oriented and is designed to be modular and highly extensible.  It makes heavy use of numpy and scipy libraries, and was designed to easily integrate with these packages.
 
-There are two main parts of the program:  First, general-usage spectrum utilities, which are bundled in `spectrum.py`.  Second, the rescaling procedure, which is kept in `mapspec.py`.  
+There are two main parts of the package:  First, general-usage spectrum utilities, which are bundled in `mapspec/spectrum.py`.  Second, the rescaling procedure, which is kept in `mapspec/mapspec.py`.  
 
-Some helpful scripts for constructing a reference spectrum are also provided----these are `make_ref` and `smooth_ref`, check the internal comments for details.  By default, they are installed to your system as scripts.
+Some helpful scripts for constructing a reference spectrum are also provided----these are `make_ref` and `smooth_ref`.  Check the help menus and internal comments for details.  By default, they are installed to your system and available on the command line.
 
 We begin by describing (with illustrative examples) the spectrum utilities.
 
@@ -152,7 +149,7 @@ Two files with test data from NGC 5548 (3 column ascii) are in `examples` (test.
 
 ## Rescaling Spectra ##
 
-The tools for rescaling spectra are in `mapspec.py`.  Most of the work is done by the `RescaleModel` class:
+The tools for rescaling spectra are in `mapspec/mapspec.py`.  Most of the work is done by the `RescaleModel` class:
 
     from mapspec.spectrum import *
     from mapspec.mapspec import RescaleModel

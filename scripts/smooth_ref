@@ -1,10 +1,13 @@
-#!python
-##import matplotlib
-##matplotlib.use('TkAgg') 
-
+#!/usr/bin/env python
+import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
+import argparse
 import sys
+import os
+
+DIR = os.path.abspath(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(DIR, '..'))
 #sys.path.insert(0, os.path.abspath(   os.path.dirname(__file__)) + '/..')
 
 from mapspec.spectrum import *
@@ -50,152 +53,190 @@ the fits, and let's you interactively specify how much to smooth
 'sref', if you prefer.
 """
 
-if len(sys.argv) == 1:
-    print('Usage:')
-    print('python  ref_smooth.py   infile.txt  speclist   window outfile.txt')
-    print('infile.txt---  input spectrum to smooth (usually the reference for alignment)')
-    print('speclist--  1 col ascii file with list of files to compare---determines target resolution')
-    print('window---  window file designating wavelengths for the EmissionLine')
-    print('outfile.txt---  output spectrum, after smoothing')
-    sys.exit()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(prog="smooth_ref",
+                                     description="This is an interactive program that will calculate "
+                                     "the resolutions of a list of spectra "
+                                     "and then smooth a specified reference spectrum to match "
+                                     "the lowest resolution.  The resultions are "
+                                     "measured by fitting Gaussians to an "
+                                     "emission line and reporting the "
+                                     "Full Width at Half Max of the fit.  "
+                                     "The smoothing width is calculated as "
+                                     "sqrt(max_res^2 - ref_res^2).  Several plots are "
+                                     "shown during this process to check the results, and "
+                                     "prompts are given in the command line.  The program "
+                                     "saves the smoothed reference to a new file, and "
+                                     "writes the smoothing parameters to a file called "
+                                     "ref_resolution.dat.")
 
-#reference
-sref = TextSpec(sys.argv[1],style='linear')
-#list of spectra
-speclist = sp.genfromtxt(sys.argv[2],dtype=str)
-#line used to calculate resolution
-window   = sp.genfromtxt(sys.argv[3])
-print(window)
+    parser.add_argument("-i","--input_file", metavar="FILE",
+                        help = "Spectrum file saved in text format that will "
+                        "be smoothed, based on user input.")
+    parser.add_argument("-w","--wv_window_file", metavar="FILE",
+                        help = "Text file with wavelength windows in 2-column 3-row format.  "
+                        "Columns are blue/red edges of the wavelength ranges, "
+                        "and rows are emission line range, "
+                        "blue continuum range, and red continuum range.")
+    parser.add_argument("-s","--spec_list", metavar="FILE",
+                        help = "Text file with list of spectrum files for which to "
+                        "examine the resolution distribution, "
+                        "with one filename per line.  Spectrum files should be saved as text files.")
+    parser.add_argument("-o","--outfile", metavar="FILE",
+                        help = "The smoothed input spectrum is saved in a text file with this name.")
+    args = parser.parse_args()
+    if args.input_file is None:
+        print('--input_file is "None", but this argument is required.  Exiting do_map.')
+        sys.exit()
+    if args.wv_window_file is None:
+        print('--wv_wavelength_file is "None", but this argument is required. Exiting do_map.')
+        sys.exit()
+    if args.spec_list is None:
+        print('--spec_list is "None", but this argument is required. Exiting do_map.')
+        sys.exit()    
 
-lref = EmissionLine(sref,window[0],[window[1],window[2]])
-lcenter = lref.wv_mean()
+    #reference
+    sref = TextSpec(args.input_file,style='linear')
+    #list of spectra
+    speclist = np.genfromtxt(args.spec_list,dtype=str)
+    #line used to calculate resolution
+    window   = np.genfromtxt(args.wv_window_file)
+    print(window)
 
-#model as a Gaussian, so that everything is measured in the same way
-lmodelref = LineModel(lref,func='gaussian')
+    lref = EmissionLine(sref,window[0],[window[1],window[2]])
+    lcenter = lref.wv_mean()
 
-
-centdist = []
-dispdist = []
-
-
-plt.ion()
-print('name         FWHM, FWHM fit')
-for spec in speclist:
-    s = TextSpec(spec)
-
-#    shift0 = get_cc(s.f,sref.f,s.wv,sref.wv)
-#    s.wv -= shift0
-#    print shift0
-    l = EmissionLine(s,window[0],[window[1],window[2]])
-    lmodel = LineModel(l,func='gaussian')
-
-    if lmodel.p[2] < 0: 
-        lmodel.p[2] = -lmodel.p[2]
-
-    dispdist.append(lmodel.p[2])
-    centdist.append(lmodel.p[1])
-
-    fwhm,dum1 = l.fwhm(lcenter)
-    print(spec, fwhm,lmodel.p[2]*2.35)
-
-
-
-#convert sigma to FWHM
-res = lmodelref.p[2]*2.35
-print('parameters of referenc fit: (scale, center, width):',lmodelref.p)
-
-#check how good the gauasian fit is
-plt.plot(lref.wv,lref.f,'ko-',label='reference data')
-plt.plot(lref.wv,lmodelref(lref.wv),'bo-',label='model')
-plt.legend(loc='upper left',frameon=0)
-plt.gca().set_title('Reference line profile')
-plt.draw()
-print('Check that you believe the fit the reference line profile--need only be approximate')
-input('Press enter to continue')
-
-plt.clf()
-
-#worth checking if there are large wavelength shifts (where is the
-#center of the fit?).
-plt.hist(centdist)
-plt.gca().set_title('Distribution of line centers')
-plt.draw()
-print('Check that the center of the fits are close enough together that you trust the inferred line widths')
-input('Press enter to continue')
+    #model as a Gaussian, so that everything is measured in the same way
+    lmodelref = LineModel(lref,func='gaussian')
 
 
-plt.clf()
+    centdist = []
+    dispdist = []
 
-dispdist = sp.array(dispdist)*2.35
-plt.hist(dispdist)
-l,u = plt.gca().get_ylim()
-plt.plot([res,res],[l,u],'r-')
-plt.gca().set_xlabel('FWHM (angstroms)')
-plt.gca().set_title('Line Model FWHM')
-plt.draw()
 
-print('red line shows native reference resolution:',res)
+    plt.ion()
+    print('name         FWHM, FWHM fit')
+    for spec in speclist:
+        s = TextSpec(spec)
 
-newres = None
-cut = input('Where to cut resolution distribution? (type "m" for "manual" to enter smoothing width by hand)\n')
-if 'm' in cut:
-    #assumes the user will put in a FWHM
-    newres = float(input('Enter smoothing width\n'))/2.35
-else:
-    cut = float(cut)
+        #shift0 = get_cc(s.f,sref.f,s.wv,sref.wv)
+        #s.wv -= shift0
+        #print shift0
+        l = EmissionLine(s,window[0],[window[1],window[2]])
+        lmodel = LineModel(l,func='gaussian')
 
-plt.clf()
+        if lmodel.p[2] < 0: 
+            lmodel.p[2] = -lmodel.p[2]
 
-#smoothing width to get to max resolution below the cut
-if newres == None:
-##    print 'dadada'
-    m = dispdist < cut
-    while len(dispdist[m]) == 0:
-        cut = float(input( 'Try a different cut (cut is below the lowest FWHM)\n'))/2.35
+        dispdist.append(lmodel.p[2])
+        centdist.append(lmodel.p[1])
+
+        fwhm,dum1 = l.fwhm(lcenter)
+        print(spec, fwhm,lmodel.p[2]*2.35)
+
+
+
+    #convert sigma to FWHM
+    res = lmodelref.p[2]*2.35
+    print('parameters of referenc fit: (scale, center, width):',lmodelref.p)
+
+    #check how good the gauasian fit is
+    plt.plot(lref.wv,lref.f,'ko-',label='reference data')
+    plt.plot(lref.wv,lmodelref(lref.wv),'bo-',label='model')
+    plt.legend(loc='upper left',frameon=0)
+    plt.gca().set_title('Reference line profile')
+    plt.draw()
+    print('Check that you believe the fit the reference line profile--need only be approximate')
+    input('Press enter to continue')
+
+    plt.clf()
+
+    #worth checking if there are large wavelength shifts (where is the
+    #center of the fit?).
+    plt.hist(centdist)
+    plt.gca().set_title('Distribution of line centers')
+    plt.draw()
+    print('Check that the center of the fits are close enough together that you trust the inferred line widths')
+    input('Press enter to continue')
+
+
+    plt.clf()
+
+    dispdist = np.array(dispdist)*2.35
+    plt.hist(dispdist)
+    l,u = plt.gca().get_ylim()
+    plt.plot([res,res],[l,u],'r-')
+    plt.gca().set_xlabel('FWHM (angstroms)')
+    plt.gca().set_title('Line Model FWHM')
+    plt.draw()
+
+    print('red line shows native reference resolution:',res)
+
+    newres = None
+    cut = input('Where to cut resolution distribution? Or type "m" for "manual" to enter smoothing width by hand\n')
+    if 'm' in cut:
+        #assumes the user will put in a FWHM
+        newres = float(input('Enter smoothing width\n'))/2.35
+    else:
+        cut = float(cut)
+
+    plt.clf()
+
+    #smoothing width to get to max resolution below the cut
+    if newres == None:
+        ##    print 'dadada'
         m = dispdist < cut
+        while len(dispdist[m]) == 0:
+            cut = float(input( 'Try a different cut (cut is below the lowest FWHM)\n'))/2.35
+            m = dispdist < cut
 
-    newres = sp.sqrt(dispdist[m].max()**2 - res**2 )/2.35
-    print('max resolution below the cut:', dispdist[m].max())
-    print('smoothing width (pixels):',newres*2.35, '('+str(2.35*newres/(s.wv[1] - s.wv[0]))+')')
+        newres = np.sqrt(dispdist[m].max()**2 - res**2 )/2.35
+        print('max resolution below the cut:', dispdist[m].max())
+        print('smoothing width (pixels):',newres*2.35, '('+str(2.35*newres/(s.wv[1] - s.wv[0]))+')')
 
-#do the smoothing
-newres_pix =  newres/(s.wv[1] - s.wv[0])
-sref.smooth(int(5.*newres_pix)*2 + 1, name = ('gaussian', newres_pix) )
-lref = EmissionLine(sref,window[0],[window[1],window[2]])
-lmodel = LineModel(lref,func='gaussian')
-res2 = lmodel.p[2]*2.35
+    #do the smoothing
+    newres_pix =  newres/(s.wv[1] - s.wv[0])
+    sref.smooth(int(5.*newres_pix)*2 + 1, name = ('gaussian', newres_pix) )
+    lref = EmissionLine(sref,window[0],[window[1],window[2]])
+    lmodel = LineModel(lref,func='gaussian')
+    res2 = lmodel.p[2]*2.35
 
-print('new reference resolution:',res2)
-#plt.hist(dispdist,edgecolor='k',histtype='step')
-plt.hist(dispdist)
-
-l,u = plt.gca().get_ylim()
-plt.plot([res,res],[l,u],'r',lw=2,label='Native Reference')
-plt.plot([res2,res2],[l,u],'g',lw=2,label='Smoothed Reference')
-plt.legend(loc='upper left',frameon=0)
-plt.gca().set_xlabel('FWHM (angstroms)')
-plt.gca().set_title('Line Model FWHM')
-plt.draw()
-input('Press enter to to save reference, else Ctr+C to quit')
-
-
+    print('new reference resolution:',res2)
+    #plt.hist(dispdist,edgecolor='k',histtype='step')
+    plt.hist(dispdist)
+    
+    l,u = plt.gca().get_ylim()
+    plt.plot([res,res],[l,u],'r',lw=2,label='Native Reference')
+    plt.plot([res2,res2],[l,u],'g',lw=2,label='Smoothed Reference')
+    plt.legend(loc='upper left',frameon=0)
+    plt.gca().set_xlabel('FWHM (angstroms)')
+    plt.gca().set_title('Line Model FWHM')
+    plt.draw()
+    input('Press enter to to save reference, else Ctr+C to quit')
 
 
-sp.savetxt(sys.argv[4],sp.c_[sp.real(sref.wv),sp.real(sref.f),sp.real(sref.ef)])
 
-#print 'errors after here'
-#print res,cut,dispdist[m].max(),newres,res2
-fout = open('ref_resolution.dat','w')
-fout.write('Ref native resolution:    % 2.4f\n'%res)
-if 'm' in str(cut):
-    fout.write('Cut for worst resolution: % manual\n')
-    fout.write('Worst object  below cut:  % none\n')
-else:
-    fout.write('Cut for worst resolution: % 2.4f\n'%cut)
-    fout.write('Worst object  below cut:  % 2.4f\n'%dispdist[m].max())
+    if args.outfile is None:
+        outfile = 'smooth_' + args.input_file
+    else:
+        outfile = args.outfile
+        
+    np.savetxt(outfile,
+               np.c_[np.real(sref.wv),np.real(sref.f),np.real(sref.ef)])
 
-fout.write('Kernel width:             % 2.4f\n'%(newres*float(2.35)) )
-fout.write('New ref resolution:       % 2.4f\n'%res2)
-fout.close()
+    #print 'errors after here'
+    #print res,cut,dispdist[m].max(),newres,res2
+    fout = open('ref_resolution.dat','w')
+    fout.write('Ref native resolution:    % 2.4f\n'%res)
+    if 'm' in str(cut):
+        fout.write('Cut for worst resolution: % manual\n')
+        fout.write('Worst object  below cut:  % none\n')
+    else:
+        fout.write('Cut for worst resolution: % 2.4f\n'%cut)
+        fout.write('Worst object  below cut:  % 2.4f\n'%dispdist[m].max())
+
+    fout.write('Kernel width:             % 2.4f\n'%(newres*float(2.35)) )
+    fout.write('New ref resolution:       % 2.4f\n'%res2)
+    fout.close()
 
 

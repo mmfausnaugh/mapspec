@@ -1,9 +1,14 @@
 #!python
+import numpy as np
 import scipy as sp
 from scipy.signal import correlate
 import matplotlib.pyplot as plt
+import argparse
+import os
 import sys
-#sys.path.insert(0, os.path.abspath(   os.path.dirname(__file__)) + '/..')
+DIR = os.path.abspath(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(DIR, '..'))
+
 from mapspec.spectrum import Spectrum, EmissionLine, TextSpec
 from copy import deepcopy
 
@@ -16,8 +21,7 @@ some target emission line.
 
 'Best fit' is not rigorously defined, because different shifts cause
 different overlaps of pixels, so the degrees of freedom are changing.
-Nevertheless, it is a pretty robust algorithm and seems to be good
-enough for most purposes.
+Nevertheless, it seems to be good enough for most purposes.
 
 input is a list of spectra 'speclist' that are combined with a
 weighted average.  The shifts are solved to align with the FIRST
@@ -42,13 +46,13 @@ def get_chi2(s1,s2,shift):
 
     y1,z1 = s1.interp(xnew)
 
-    return sp.sum( 
+    return np.sum( 
         (y1 - s2.f[trim: - trim])**2/(z1**2 + s2.ef[trim: - trim]**2)
         )
 
 def get_cc(y1,y2,x):
     cc = correlate(y1,y2,mode='same')
-    i  = sp.where(cc == cc.max())[0]
+    i  = np.where(cc == cc.max())[0]
     shift = (x[1] - x[0] )*(cc.size//2 - i)
 
     return shift
@@ -61,19 +65,20 @@ def tidy(xout,yout,zout):
             xmin = deepcopy(x)
 
     print(xmin)
-    for i in range(sp.shape(xout)[0]):
-        j = sp.in1d(xout[i],xmin)
+    xout  = np.array(xout,dtype=object)
+    for i in range(np.shape(xout)[0]):
+        j = np.in1d(xout[i],xmin)
 
         yout[i] = yout[i][j]
         zout[i] = zout[i][j]
 
-    print(sp.shape(xout),sp.shape(yout),sp.shape(zout))
+    yout  = np.array(yout)
+    zout  = np.array(zout)
+    print(np.shape(xout),np.shape(yout),np.shape(zout))
 #    print yout
-    yout  = sp.array(yout)
-    zout = sp.array(zout)
-    ymean = sp.sum( yout/zout**2,axis = 0 )/sp.sum(1./zout**2, axis = 0)
-    error = sp.sqrt( 
-        1./sp.sum(1./zout**2,axis = 0) 
+    ymean = np.sum( yout/zout**2,axis = 0 )/np.sum(1./zout**2, axis = 0)
+    error = np.sqrt( 
+        1./np.sum(1./zout**2,axis = 0) 
         )
 
     return xmin,ymean,error
@@ -113,7 +118,7 @@ def HM(ntrial,s1,s2,p):
 
 
         else:
-            prob = sp.exp(-chi2try/chi2)
+            prob = np.exp(-chi2try/chi2)
             r = sp.rand()
             if r <= prob:
                 p = deepcopy(ptry)
@@ -122,85 +127,109 @@ def HM(ntrial,s1,s2,p):
 
     return chi2best,pbest,accept/float(ntrial)
 
-if len(sys.argv) == 1:
-    print('Usage:')
-    print('python ref_make.py   speclist    window  outfile.txt')
-    print('speclist--      1 col ascii file with list of files to combine')
-    print('window---       window file designating wavelengths for the EmissionLine')
-    print('outfile.txt---  output spectrum, after smoothing')
-    sys.exit()
+if __name__ == "__main__":
 
-#list of spectra for the reference
-reflist = sp.genfromtxt(sys.argv[1],dtype=str)
-#window for line to align
-window = sp.genfromtxt(sys.argv[2])
+    parser = argparse.ArgumentParser(prog="do_map",
+                                     description ="This program takes a list of spectra, "
+                                     " aligns them in wavelength, and combines them as "
+                                     "a weighted average.  The program solves for wavelength "
+                                     "shifts based on an emission line specified by "
+                                     "wv_window_file.  If the list of spectra were taken on "
+                                     "photometric nights, the resulting 'reference' spectrum "
+                                     "is accurately flux calibrated.")
 
+    parser.add_argument("-s","--spec_list", metavar="FILE",
+                        help = "Text file with list of spectrum files to combine,  "
+                        "one filename per line.  Spectrum files should be saved as text files.")
+    parser.add_argument("-w","--wv_window_file", metavar="FILE",
+                        help = "Text file with wavelength windows in 2-column 3-row format.  "
+                        "Columns are blue/red edges of the wavelength ranges, "
+                        "and rows are emission line range, "
+                        "blue continuum range, and red continuum range.")
+    parser.add_argument("-o","--outfile", metavar="FILE", 
+                        help = "Output reference spectrum is saved in a text file with this name.")
+    args = parser.parse_args()
+    if args.outfile is None:
+        print('--outfile is "None", but this argument is required.  Exiting do_map.')
+        sys.exit()
+    if args.wv_window_file is None:
+        print('--wv_wavelength_file is "None", but this argument is required. Exiting do_map.')
+        sys.exit()
+    if args.spec_list is None:
+        print('--spec_list is "None", but this argument is required. Exiting do_map.')
+        sys.exit()
 
-S,L = [],[]
-for ref in reflist:
-    s = TextSpec(ref)
-    s.set_interp(style='linear')
-#    m= (s.wv > 4432)*(s.wv <7500)
-#    s.wv = s.wv[m]
-#    s.f  = s.f[m]
-#    s.ef = s.ef[m]
-
-    S.append(s)
-
-#    plt.plot(s.wv,s.f,'k')
-#    plt.show()
-#trimmax = 0
-
-xout = []
-yout = []
-zout = []
-
-shiftout = []
-
-lref = EmissionLine(S[0],window[0],[window[1],window[2]])
-dwv = S[0].wv[1] - S[0].wv[0]
-
-for s in S[1::]:
-
-    #best to cross correlate local to the line, +/- say 100 wavelength units
-    mref = (S[0].wv > window[0][0] - 100*dwv )&( S[0].wv < window[0][1] + 100*dwv)
-    m = (s.wv > window[0][0] - 100*dwv )&( s.wv < window[0][1] + 100*dwv)
-    shift0 = get_cc(S[0].f[mref], s.f[m], S[0].wv[mref])
-    print('shift0',shift0)
-##    shift0 = 0
-    l = EmissionLine(s,window[0],[window[1],window[2]])
-#    print l.ef[0:5]
-#    input()
-#    plt.plot(l.wv,l.f,'k')
-#    plt.plot(lref.wv,lref.f,'r')
-#    plt.show()
-    chi,shiftuse,frac = HM(1000,lref,l,shift0)
-
-    print('chi2,shiftuse,frac')
-    print(chi,shiftuse,frac)
-
-    shiftout.append(shiftuse)
-    s.wv -= shiftuse
-
-    trim = int(round(abs(shiftuse[0]/(s.wv[1] - s.wv[0])))) + 1
-#    if trim > trimmax: trimmax = trim
-#    print 'trim',trimmax
-    y1,z1 = s.interp(S[0].wv[trim:-trim])
-#    plt.plot(S[0].wv[trim:-trim],y1,'k')
-#    plt.plot(S[0].wv[trim:-trim],z1,'r')
-#    plt.show()
-
-    xout.append(S[0].wv[trim:-trim])
-    yout.append(y1)
-    zout.append(z1)
+    #list of spectra for the reference
+    reflist = np.genfromtxt(args.spec_list,dtype=str)
+    #window for line to align
+    window = np.genfromtxt(args.wv_window_file)
 
 
-xout.append(S[0].wv)
-yout.append(S[0].f)
-zout.append(S[0].ef)
+    S,L = [],[]
+    for ref in reflist:
+        s = TextSpec(ref)
+        s.set_interp(style='linear')
+        #    m= (s.wv > 4432)*(s.wv <7500)
+        #    s.wv = s.wv[m]
+        #    s.f  = s.f[m]
+        #    s.ef = s.ef[m]
 
-xref,yref,zref = tidy(xout,yout,zout)
+        S.append(s)
+
+        #    plt.plot(s.wv,s.f,'k')
+        #    plt.show()
+        #trimmax = 0
+
+    xout = []
+    yout = []
+    zout = []
+
+    shiftout = []
+
+    lref = EmissionLine(S[0],window[0],[window[1],window[2]])
+    dwv = S[0].wv[1] - S[0].wv[0]
+
+    for s in S[1::]:
+
+        #best to cross correlate local to the line, +/- say 100 wavelength units
+        mref = (S[0].wv > window[0][0] - 100*dwv )&( S[0].wv < window[0][1] + 100*dwv)
+        m = (s.wv > window[0][0] - 100*dwv )&( s.wv < window[0][1] + 100*dwv)
+        shift0 = get_cc(S[0].f[mref], s.f[m], S[0].wv[mref])
+        print('shift0',shift0)
+        ##    shift0 = 0
+        l = EmissionLine(s,window[0],[window[1],window[2]])
+        #    print l.ef[0:5]
+        #    input()
+        #    plt.plot(l.wv,l.f,'k')
+        #    plt.plot(lref.wv,lref.f,'r')
+        #    plt.show()
+        chi,shiftuse,frac = HM(1000,lref,l,shift0)
+
+        print('chi2,shiftuse,frac')
+        print(chi,shiftuse,frac)
+
+        shiftout.append(shiftuse)
+        s.wv -= shiftuse
+
+        trim = int(round(abs(shiftuse[0]/(s.wv[1] - s.wv[0])))) + 1
+        #    if trim > trimmax: trimmax = trim
+        #    print 'trim',trimmax
+        y1,z1 = s.interp(S[0].wv[trim:-trim])
+        #    plt.plot(S[0].wv[trim:-trim],y1,'k')
+        #    plt.plot(S[0].wv[trim:-trim],z1,'r')
+        #    plt.show()
+
+        xout.append(S[0].wv[trim:-trim])
+        yout.append(y1)
+        zout.append(z1)
 
 
-sp.savetxt(sys.argv[3],sp.c_[xref,yref,zref])
-sp.savetxt('ref_shifts.dat',sp.c_[shiftout])
+    xout.append(S[0].wv)
+    yout.append(S[0].f)
+    zout.append(S[0].ef)
+
+    xref,yref,zref = tidy(xout,yout,zout)
+
+
+    np.savetxt(args.outfile, np.c_[xref,yref,zref])
+    np.savetxt('ref_shifts.dat',np.c_[shiftout])

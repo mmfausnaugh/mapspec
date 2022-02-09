@@ -1,24 +1,53 @@
 These are data from the 2014 MDM reverberation mapping campaign, which 
 can be used to test the rescaling procedure.
 
-Included are 3 spectra from two nights: 2014 01 10 (UT) was
-photometric, 2014 04 17 was cloudy and requires significant rescaling.
+These data make up a regression test---the test runs mapspec on these
+data and makes sure that the outputs match what is in the directory
+output_checks.
 
-Also included is a reference, ref.smooth.txt.  This was constructed by
-averaging observations on photometric nights, then smoothing so that
-FWHM of the [OIII]lambda5007 line matches that of the worst epoch.
+Included are 3 spectra from two nights: 2014-01-10 (UT) was
+photometric, 2014-04-17 was cloudy and requires significant rescaling.
 
-There is also a sample window file, oiii.window (for 5007 angstroms,
-observed frame).
+To run the regression test, do
 
-To test mapspec.py, try
+bash run_test.sh
 
-bash ../../run_map.py
+This will test the installation by invoking `do_map` from your current
+environment.  `do_map` will start by printing the spectrum name, then
+print the MCMC iteration number, best chi^2, and current chi^2.
+You'll get several output files: scale_mcg0811_NNN_YYMMDD.txt and
+scale.h._mcg0811_NNN_YYMMDD.txt, which are the rescaling with Gaussian
+smoothing and Gauss-Hermite smoothing, respectively.  You will also
+get the MCMC chains (samples from the posterior parameter
+distribution) in the directory 'chains', and the best-fit parameters
+(as well as chi^2 and acceptance fraction) in 'mapspec.params'.
 
-It will start printing the spectrum name, then the iteration number,
-best chi^2, and current chi^2.  You'll get several output files as
-well--- scale_mcg0811_NNN_YYMMDD.txt and
-scale.h._mcg0811_NNN_YYMMDD.txt, which are the rescaling with a
-Gaussian kernel and Gauss-Hermite Kernel, respectively.  You will also get
-the MCMC chains (posterior parameter distribution) in the directory 'chains' and
-the best-fit parameters (and chi^2 and acceptance fraction) in 'mapspec.params'.
+`run_test.sh` will continue by ensures the output of `do_map` matches the
+contents of `output_checks`.  `run_test.sh` will leave the outputs of
+`do_map` in this directory, which you can examine by running
+`plot_test.py`.  You can clear the directory by running `clean_dir.sh`
+at any time.
+
+Some notes on other files in this directory:
+
+Also included is a reference, ref.smooth.txt.  This file was
+constructed by averaging observations on photometric nights, then
+smoothing so that FWHM of the [OIII]lambda5007 line matches that of
+the worst epoch.
+
+There is also a wavelength window file, oiii.window (for 5007
+angstroms, observed frame).  oiii.window contains wavelengths for the
+emission line used as a reference.  It is 2 columns, 3 rows, like
+this:
+
+lineblue linered
+c1blue   c1red
+c2blue   c2red
+
+lineblue/linered are the bluest/reddest wavelengths of the emission
+line.  c1 and c2 are the continuum windows on either side of the
+line---it doesn't matter if c1 or c2 is bluer, but on a given window
+you must specify blue before red wavelengths.  See EmissionLine class
+in spectrum.py for more info.
+
+
