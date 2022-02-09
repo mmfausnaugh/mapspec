@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 import argparse
@@ -22,35 +23,51 @@ if __name__ == "__main__":
                                      "a table of transform model parameters, and "
                                      "the MCMC posterior sample chains." ) 
 
-    parser.add_argument("--reference_spec", metavar="FILE",
+    parser.add_argument("-r", "--reference_spec", metavar="FILE",
                         help = "Reference spectrum saved as a text file, "
                         "usually after it has been smoothed."
                         )
-    parser.add_argument("--wv_window_file", metavar="FILE",
+    parser.add_argument("-w","--wv_window_file", metavar="FILE",
                         help = "Text file with wavelength windows in 2-column 3-row format.  "
-                        "Columns are blue/red edges of the wavelength range, "
+                        "Columns are blue/red edges of the wavelength ranges, "
                         "and rows are emission line range, "
                         "blue continuum range, and red continuum range.")
-    parser.add_argument("--interp_style", metavar="STRING",
+    parser.add_argument("-i","--interp_style", metavar="STRING",
                         default= "linear",
                         help = "String specifying interpolation method, "
                         "should be either 'linear', 'sinc', 'bspline', or "
                         "a string accepted by scipy (i.e., scipy.interpolate.interp1d(kind=interp_style) ).")
-    parser.add_argument("--spec_list", metavar="FILE",
+    parser.add_argument("-s","--spec_list", metavar="FILE",
                         help = "Text file with list of spectrum files to align to reference, "
                         "one filename per line.  Spectrum files should be saved as text files.")
-    parser.add_argument("--outfile", metavar="FILE", default = "mapspec.params",
+    parser.add_argument("-o","--outfile", metavar="FILE", default = "mapspec.params",
                         help = "Output file tabulating mapspec fitting results.  "
                         "Records the parameters of the model with the lowest chi^2 "
                         "out of no smoothing, Gaussian smoothing, or Gauss-Hermite smoothing.")
-    parser.add_argument("--no_chains", action="store_false",
+    parser.add_argument("--random_seed", metavar="INT", type=int, default=10101,
+                        help="Seed for random number generator, to ensure that the MCMC "
+                        "samples are repeatable.  Change to get slightly different posterior "
+                        "sample.  Note that this will also change the mapspec model parameters.")
+    parser.add_argument("--no_chains", action="store_true",
                         help = "Do not save MCMC chains if this flag is set.")    
     parser.add_argument("--save_covar", action="store_true",
                          help = "Save the covariance matrix of spectrum "
                          "after running through mapspec model if this flag is set.")
 
     args = parser.parse_args()
+    if args.reference_spec == None:
+        print('--reference_spec is "None", but this argument is required.  Exiting do_map.')
+        sys.exit()
+    if args.wv_window_file == None:
+        print('--wv_wavelength_file is "None", but this argument is required. Exiting do_map.')
+        sys.exit()
+    if args.spec_list == None:
+        print('--spec_list is "None", but this argument is required. Exiting do_map.')
+        sys.exit()
 
+
+    np.random.seed(args.random_seed)
+        
 
     #How to interpolate?  Note that only linear interpolation does the
     #errors properly, for now
@@ -64,41 +81,43 @@ if __name__ == "__main__":
     #line 2:  continuum window 1 (low, high)
     #line 3: continuum window 2(low, high)
     #see run_map.sh for more
-    window = sp.genfromtxt(args.wv_wavelength_file)
+    window = np.genfromtxt(args.wv_window_file)
 
     #pops out the line from the reference spectrum
     lref   = EmissionLine(sref,window[0],[ window[1],window[2] ] )
 
     #list of spectra to align
-    speclist = sp.genfromtxt(args.spec_list,dtype=str)
+    speclist = np.genfromtxt(args.spec_list,dtype=str)
 
     #output file of parameters
     fout = open(args.outfile,'a')
 
     fout.write(
-        "%15s % 12s  %12s % 12s % 12s % 7s %12s % 12s % 12s % 12s % 7s % 12s % 12s % 12s % 12s % 9s % 9s %12s\n"%
-        ('file name','cc shift',
-         'chi2','shift','scale','frac',
-         'chi2','shift','scale','width','frac',
-         'chi2','shift','scale','width','h3','h4','frac')
+        "{:>30s}{:>12s}{:>12s}{:>12s}{:>12s}{:>9s}{:>12s}{:>12s}{:>12s}{:>12s}{:>9s}{:>12s}{:>12s}{:>12s}{:>12s}{:>12s}{:>12s}{:>9s}\n".format(
+            'file name','cc shift',
+            'chi2','shift','scale','frac',
+            'chi2','shift','scale','width','frac',
+            'chi2','shift','scale','width','h3','h4','frac')
     )
 
 
     #write covariances?
+    print('save_covar',args.save_covar, 'no_chains',args.no_chains)
     if args.save_covar:
         get_covar = True
         if os.path.isdir('covar_matrices') == False:
-            os.system('mkdir covar_matrices')
+            os.mkdir('covar_matrices')
     else:
         get_covar = False
 
-    if args.no_chains == True:
+    if args.no_chains:
         get_chains = False
     else:
         get_chains = True
         if os.path.isdir('chains') == False:
-            os.system('mkdir chains')
-
+            os.mkdir('chains')
+    print('get_covar',get_covar, 'get_chains',get_chains)
+    
     #plt.ion()
     for spec in speclist:
         print(spec)
@@ -139,10 +158,10 @@ if __name__ == "__main__":
             f.p = p_gauss
 
         sout,dummy = f.output(s,getcovar=get_covar)
-        sp.savetxt('scale_'+spec,sp.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
+        np.savetxt('scale_'+spec,np.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
         
         if get_covar:
-            sp.savetxt('covar_matrices/covar_'+spec,covar)
+            np.savetxt('covar_matrices/covar_'+spec,covar)
         if get_chains:
             chain_gauss.save('chains/'+spec+'.chain.gauss')
 
@@ -161,7 +180,7 @@ if __name__ == "__main__":
         #    Gaussian of mean 1.8 angstroms and std 1.0 angstroms.
         
         #    def wprior(x,params):
-        #        return sp.exmp(-0.5*(x - params[0])**2/ (params[1])**2 )
+        #        return np.exmp(-0.5*(x - params[0])**2/ (params[1])**2 )
         #    f.make_func_prior('width', wprior, [1.8, 1.0] )
 
         try:
@@ -181,16 +200,17 @@ if __name__ == "__main__":
         sout,dummy = f.output(s,getcovar=get_covar)
     
         fout.write(
-            "%15s % 8.4f  %10.2f % 8.4f % 8.4f % 5.2f %10.2f % 8.4f % 8.4f % 8.4f % 5.2f % 10.2f % 8.4f % 8.4f % 8.4f % 5.4e % 5.4e %8.4f\n"%
-            (spec,s0[0],
-             chi2_delta,p_delta['shift'],p_delta['scale'], frac_delta,
-             chi2_gauss,p_gauss['shift'],p_gauss['scale'],p_gauss['width'],frac_gauss,
-             chi2_herm,p_herm['shift'],p_herm['scale'],p_herm['width'],p_herm['h3'],p_herm['h4'],frac_herm)
+            "{:30s}{:>12.4f}{:>12.2f}{:>12.4f}{:>12.4f}{:>9.2f}{:>12.2f}{:>12.4f}{:>12.4f}{:>12.4f}"
+            "{:>9.2f}{:>12.2f}{:>12.4f}{:>12.4f}{:>12.4f}{:>12.4e}{:>12.4e}{:>9.4f}\n".format(
+                spec,s0[0],
+                chi2_delta,p_delta['shift'],p_delta['scale'], frac_delta,
+                chi2_gauss,p_gauss['shift'],p_gauss['scale'],p_gauss['width'],frac_gauss,
+                chi2_herm,p_herm['shift'],p_herm['scale'],p_herm['width'],p_herm['h3'],p_herm['h4'],frac_herm)
         )
         fout.flush()
-        sp.savetxt('scale.h._'+spec,sp.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
+        np.savetxt('scale.h._'+spec,np.c_[sout.wv,sout.f,sout.ef],fmt='% 6.2f % 4.4e % 4.4e')
         if get_covar:
-            sp.savetxt('covar_matrices/covar.h._'+spec,covar)
+            np.savetxt('covar_matrices/covar.h._'+spec,covar)
         if get_chains:
             chain_herm.save('chains/'+spec+'.chain.herm')
 

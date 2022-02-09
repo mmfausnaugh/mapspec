@@ -53,16 +53,28 @@ the fits, and let's you interactively specify how much to smooth
 """
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog="smoothref",
-                                     description="Inspect resolution distribution "
-                                     "and smooth reference spectrum to match.")
+    parser = argparse.ArgumentParser(prog="smooth_ref",
+                                     description="This is an interactive program that will calculate "
+                                     "the resolutions of a list of spectra "
+                                     "and then smooth a specified reference spectrum to match "
+                                     "the lowest resolution.  The resultions are "
+                                     "measured by fitting Gaussians to an "
+                                     "emission line and reporting the "
+                                     "Full Width at Half Max of the fit.  "
+                                     "The smoothing width is calculated as "
+                                     "sqrt(max_res^2 - ref_res^2).  Several plots are "
+                                     "shown during this process to check the results, and "
+                                     "prompts are given in the command line.  The program "
+                                     "saves the smoothed reference to a new file, and "
+                                     "writes the smoothing parameters to a file called "
+                                     "ref_resolution.dat.")
 
     parser.add_argument("--input_file", metavar="FILE",
                         help = "Spectrum file saved in text format that will "
                         "be smoothed, based on user input.")
     parser.add_argument("--wv_window_file", metavar="FILE",
                         help = "Text file with wavelength windows in 2-column 3-row format.  "
-                        "Columns are blue/red edges of the wavelength range, "
+                        "Columns are blue/red edges of the wavelength ranges, "
                         "and rows are emission line range, "
                         "blue continuum range, and red continuum range.")
     parser.add_argument("--spec_list", metavar="FILE",
@@ -70,7 +82,7 @@ if __name__ == "__main__":
                         "examine the resolution distribution, "
                         "with one filename per line.  Spectrum files should be saved as text files.")
     parser.add_argument("--outfile", metavar="FILE", default = "mapspec.params",
-                        help = "Smoothed input spectrum is saved in a text file with this name."")
+                        help = "The smoothed input spectrum is saved in a text file with this name.")
     args = parser.parse_args()
     
 

@@ -141,7 +141,7 @@ if __name__ == "__main__":
                         "one filename per line.  Spectrum files should be saved as text files.")
     parser.add_argument("--wv_window_file", metavar="FILE",
                         help = "Text file with wavelength windows in 2-column 3-row format.  "
-                        "Columns are blue/red edges of the wavelength range, "
+                        "Columns are blue/red edges of the wavelength ranges, "
                         "and rows are emission line range, "
                         "blue continuum range, and red continuum range.")
     parser.add_argument("--outfile", metavar="FILE", 
