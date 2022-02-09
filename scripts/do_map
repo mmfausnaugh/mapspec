@@ -55,13 +55,13 @@ if __name__ == "__main__":
                          "after running through mapspec model if this flag is set.")
 
     args = parser.parse_args()
-    if args.reference_spec == None:
+    if args.reference_spec is None:
         print('--reference_spec is "None", but this argument is required.  Exiting do_map.')
         sys.exit()
-    if args.wv_window_file == None:
+    if args.wv_window_file is None:
         print('--wv_wavelength_file is "None", but this argument is required. Exiting do_map.')
         sys.exit()
-    if args.spec_list == None:
+    if args.spec_list is None:
         print('--spec_list is "None", but this argument is required. Exiting do_map.')
         sys.exit()
 

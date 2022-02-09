@@ -1,4 +1,5 @@
 #!python
+import numpy as np
 import scipy as sp
 from scipy.signal import correlate
 import matplotlib.pyplot as plt
@@ -45,13 +46,13 @@ def get_chi2(s1,s2,shift):
 
     y1,z1 = s1.interp(xnew)
 
-    return sp.sum( 
+    return np.sum( 
         (y1 - s2.f[trim: - trim])**2/(z1**2 + s2.ef[trim: - trim]**2)
         )
 
 def get_cc(y1,y2,x):
     cc = correlate(y1,y2,mode='same')
-    i  = sp.where(cc == cc.max())[0]
+    i  = np.where(cc == cc.max())[0]
     shift = (x[1] - x[0] )*(cc.size//2 - i)
 
     return shift
@@ -64,19 +65,20 @@ def tidy(xout,yout,zout):
             xmin = deepcopy(x)
 
     print(xmin)
-    for i in range(sp.shape(xout)[0]):
-        j = sp.in1d(xout[i],xmin)
+    xout  = np.array(xout,dtype=object)
+    for i in range(np.shape(xout)[0]):
+        j = np.in1d(xout[i],xmin)
 
         yout[i] = yout[i][j]
         zout[i] = zout[i][j]
 
-    print(sp.shape(xout),sp.shape(yout),sp.shape(zout))
+    yout  = np.array(yout)
+    zout  = np.array(zout)
+    print(np.shape(xout),np.shape(yout),np.shape(zout))
 #    print yout
-    yout  = sp.array(yout)
-    zout = sp.array(zout)
-    ymean = sp.sum( yout/zout**2,axis = 0 )/sp.sum(1./zout**2, axis = 0)
-    error = sp.sqrt( 
-        1./sp.sum(1./zout**2,axis = 0) 
+    ymean = np.sum( yout/zout**2,axis = 0 )/np.sum(1./zout**2, axis = 0)
+    error = np.sqrt( 
+        1./np.sum(1./zout**2,axis = 0) 
         )
 
     return xmin,ymean,error
@@ -116,7 +118,7 @@ def HM(ntrial,s1,s2,p):
 
 
         else:
-            prob = sp.exp(-chi2try/chi2)
+            prob = np.exp(-chi2try/chi2)
             r = sp.rand()
             if r <= prob:
                 p = deepcopy(ptry)
@@ -136,23 +138,31 @@ if __name__ == "__main__":
                                      "photometric nights, the resulting 'reference' spectrum "
                                      "is accurately flux calibrated.")
 
-    parser.add_argument("--spec_list", metavar="FILE",
+    parser.add_argument("-s","--spec_list", metavar="FILE",
                         help = "Text file with list of spectrum files to combine,  "
                         "one filename per line.  Spectrum files should be saved as text files.")
-    parser.add_argument("--wv_window_file", metavar="FILE",
+    parser.add_argument("-w","--wv_window_file", metavar="FILE",
                         help = "Text file with wavelength windows in 2-column 3-row format.  "
                         "Columns are blue/red edges of the wavelength ranges, "
                         "and rows are emission line range, "
                         "blue continuum range, and red continuum range.")
-    parser.add_argument("--outfile", metavar="FILE", 
+    parser.add_argument("-o","--outfile", metavar="FILE", 
                         help = "Output reference spectrum is saved in a text file with this name.")
     args = parser.parse_args()
-
+    if args.outfile is None:
+        print('--outfile is "None", but this argument is required.  Exiting do_map.')
+        sys.exit()
+    if args.wv_window_file is None:
+        print('--wv_wavelength_file is "None", but this argument is required. Exiting do_map.')
+        sys.exit()
+    if args.spec_list is None:
+        print('--spec_list is "None", but this argument is required. Exiting do_map.')
+        sys.exit()
 
     #list of spectra for the reference
-    reflist = sp.genfromtxt(args.spec_list,dtype=str)
+    reflist = np.genfromtxt(args.spec_list,dtype=str)
     #window for line to align
-    window = sp.genfromtxt(sys.wv_window_file)
+    window = np.genfromtxt(args.wv_window_file)
 
 
     S,L = [],[]
@@ -221,5 +231,5 @@ if __name__ == "__main__":
     xref,yref,zref = tidy(xout,yout,zout)
 
 
-    sp.savetxt(args.outfile, sp.c_[xref,yref,zref])
-    sp.savetxt('ref_shifts.dat',sp.c_[shiftout])
+    np.savetxt(args.outfile, np.c_[xref,yref,zref])
+    np.savetxt('ref_shifts.dat',np.c_[shiftout])

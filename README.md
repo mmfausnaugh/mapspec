@@ -47,7 +47,7 @@ Examples of all of these files are in `examples/mapspec_test`.
 
 `do_map` runs a list of spectra through the rescaling model.  This is the normal _modus operandi_ for reverberation mapping studies, so `do_map` may have everything that most users need.  The output (using the Gauss-Hermite smoothing kernel) will be saved in files called 'scale.h._<input_spectrum_name>'.
 
-To see how `do_map` works, you an look at the source in `mapspec/scripts/do_map`.
+To see how `do_map` works, you can look at the source in `mapspec/scripts/do_map`.
 
 `do_map` also does some simple model comparisons (Gaussian smoothing vs. Gauss-Hermite smoothing).   The file `mapspec.params` compares the chi^2 from two different different rescaling models, and two output spectra are saved by default ('scale_<input_spectrum_name>' for Gaussian smoothing and  'scale.h._<input_spectrum_name>' for Gauss-Hermite smoothing).
 
