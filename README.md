@@ -4,7 +4,7 @@
 
 * * *
 
-# Installation and Dependencies #
+# Installation #
 
 `mapspec` is a fairly simple python package.  Download it with `git clone`, `cd` to the mapspec directory, and run
 
