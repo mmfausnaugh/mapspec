@@ -8,44 +8,51 @@
 
 `mapspec` is a fairly simple python package.  Download it (best to use `git clone`), cd to the mapspec directory, and run
 
-`python setup.py install`
+```
+python setup.py sdist
+pip install -e ./
+```
 
 This installs to your full system---consider using a virtual environment (virtualenv or conda) or 
 
-`python setup.py install --prefix MAPSPECDIR`
+```
+python setup.py sdist
+pip install ./ --user <MAPSPECDIR>
+```
 
 for more fine-grained control.  
 
 Alternatively, put the mapspec directory in your PYTHONPATH or your current working directory.  
 
-Code is compatible with python2.7 and python3.6 or later.
+`mapspec` is compatible with python 2.7 and python3.6 or later.
 
-To test the installation, go to `examples` and try running the test scripts:
+To test the installation, go to `examples` and try running these test scripts:
 
+    cd examples/spectrum_test
     python test_sincinterp.py
     python test_linefit.py
+    cd ../mapspec_test
+    bash run_test.sh
 
-These mostly deal with data structures in `spectrum.py`; to test the rescaling procedure itself, go to `mapspec_test` and run
-
-   `sh run_map.sh`
+`run_test.sh` runs regression tests---it uses some sample data in this directory, runs mapspec on them, and checks that the outputs match standardized files in `mapspec_test/output_checks`.  The tests take about 10 minutes to run, and the results can be plotted with `mapspec_test/plot_test.py`.  More details are in `mapspec_test/README`.
 
 # Quick Start #
 
-If you want to get right into it, the shell script `run_map.sh` gives a basic command for aligning spectra (the `do_map` command comes from a script that was installed during setup).  However, if you are wary of black boxes, skip to the 'Outline' (below).
+The workhorse script is `script/do_map`, which is available from the command line after installing `mapspec` and has a help function.
 
-Comments inside `run_map.sh` parse all arguments of this command, but for completeness, here are the data files that you need:
+Here are the data files that you need:
 
-* A reference spectrum in 3 column ascii format (wavelength, flux, and flux error)
-* A file with wavelength regions for the emission line.  This should be 3 lines: 1)  the wavelength window of the emission line, 2) the wavelength window of the blueward continuum, and 3) the wavelength window of the redward continuum.  Each line has 2 numbers: the blue edge of the wavelength window and the red edge of the wavelength window
+* A reference spectrum in 3 column ascii format (wavelength, flux, and flux error).
+* A file with wavelength regions for the emission line.  This should have 3 rows: 1)  the wavelength window of the emission line, 2) the wavelength window of the blueward continuum, and 3) the wavelength window of the redward continuum.  Each line has 2 numbers: the blue edge of the wavelength region window and the red edge of the wavelength region window.
 * A list of files with spectra to rescale, 1 file per line.  Like the reference, the spectra should be in 3 column ascii format
 
 Examples of all of these files are in `examples/mapspec_test`.
 
-The actual work is done by a `python` script called `do_map`, which runs a list of spectra through the rescaling model.  This is the normal _modus operandi_ for reverberation mapping studies, so `do_map` might be adequate for most users.  The output (using the Gauss-Hermite smoothing kernel) will be saved in files called 'scale.h._input_spectrum_name'.
+Do_map runs a list of spectra through the rescaling model.  This is the normal _modus operandi_ for reverberation mapping studies, so `do_map` may have everything that most users need.  The output (using the Gauss-Hermite smoothing kernel) will be saved in files called 'scale.h._input_spectrum_name'.
 
-It is probably useful to learn how `do_map` works---the source is in `mapspec/scripts/` (along with other potentially useful scripts).  
+To see how `do_map` works, you an look at the source in `mapspec/scripts/do_map`.
 
-`do_map` also does some simple model comparisons (Gaussian smoothing vs. Gauss-Hermite smoothing).   The file `mapspec.params` compares the fits from different different rescaling procedures, and two output spectra are saved by default ('scale_input_spectrum_name' for Gaussian smoothing and  'scale.h._input_spectrum_name' for Gauss-Hermite smoothing).
+`do_map` also does some simple model comparisons (Gaussian smoothing vs. Gauss-Hermite smoothing).   The file `mapspec.params` compares the chi^2 from two different different rescaling models, and two output spectra are saved by default ('scale_<input_spectrum_name>' for Gaussian smoothing and  'scale.h._<input_spectrum_name>' for Gauss-Hermite smoothing).
 
 
 * * *
