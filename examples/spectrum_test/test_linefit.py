@@ -1,13 +1,13 @@
 import scipy as sp
 import matplotlib.pyplot as plt
 import sys
-sys.path.insert(0, '..')
-from mapspec.spectrum import TextSpec,TextSpec_2c,EmissionLine,LineModel
+#sys.path.insert(0, '..')
+from mapspec.mapspec.spectrum import TextSpec,TextSpec_2c,EmissionLine,LineModel
 """
 Examples for how to use the line fitting functionality, and to test
 the install of spectrum.py.
 
-These are for test.dat, which is a MODS 1 spectrum of NGC 5548 from
+These are for test.LBT_MODS1.dat, which is a MODS 1 spectrum of NGC 5548 from
 the LBT, taken in 2014.  Therefore, things are hard-coded.
 
 You should get 3 plots---one shows results from fitting a single line,
@@ -22,7 +22,7 @@ window = [ [4821,5009],[4672,4711],[5167,5207] ]
 #[OIII]lambda 5007
 oiii   = [ [5066,5108],[5057,5066],[5108,5165] ]
 
-s = TextSpec('test_data/test.dat',style='sinc')
+s = TextSpec('test_data/test.LBT_MODS1.dat',style='sinc')
 
 
 l = EmissionLine(s,window[0],[window[1],window[2]])
@@ -47,6 +47,11 @@ plt.plot(xgrid,mg(xgrid),'m',label='gauss')
 plt.plot(xgrid,mh(xgrid),'orange',label='hermite')
 plt.plot(xgrid,ml(xgrid),color='r',label='lorentz')
 plt.plot(xgrid,mv(xgrid),color='purple',label='voigt')
+
+plt.gca().set_xlabel("wavelength ($\mathrm{\AA}$)")
+plt.gca().set_ylabel("Flux")
+plt.gca().set_title('Fits of different models to NGC5548 Hbeta,\nfrom LBT-MODS1 in 2014.')
+
 
 plt.legend(loc='upper left')
 
@@ -95,7 +100,14 @@ l.f[mask] -= mdat(l.wv[mask]) - mdat.p[-1]
 plt.plot(l.wv,l.f,'b',label='minus [OIII] rescaled')
 l.restore()
 
-plt.legend(loc='upper right')
+plt.legend(loc='upper left')
+
+plt.gca().set_xlabel("wavelength ($\mathrm{\AA}$)")
+plt.gca().set_ylabel("Flux")
+plt.gca().set_title('Comparison of narrow Hbeta models and subtraction\n'
+                    'Gauss-Hermite fit and rescaled [OIII] template.')
+
+
 #Now fit multiple components
 
 #Switch to Halpha, more impressive
@@ -119,6 +131,9 @@ plt.figure()
 a = plt.gca()
 a.plot(l.wv,l.f,'k')
 a.plot(xgrid3,mg2(xgrid3),'r',label='gauss')
+a.set_xlabel("wavelength ($\mathrm{\AA}$)")
+a.set_ylabel("Flux")
+a.set_title('Fits to NGC5548 hbeta with 5 Gaussians.')
 #a.plot(xgrid3,mh2(xgrid3),'orange',label='hermite')
 #a.plot(xgrid,ml2(xgrid),color='r',label='lorentz')
 #a.plot(xgrid,mv2(xgrid),color='purple',label='voigt')
